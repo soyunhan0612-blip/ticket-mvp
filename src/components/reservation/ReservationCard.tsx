@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Dialog } from "@/components/ui/Dialog";
 import { useCancelReservation } from "@/hooks/use-cancel-reservation";
 import type { Reservation } from "@/types";
 
@@ -30,12 +31,12 @@ export function ReservationCard({
 }: ReservationCardProps): JSX.Element {
   const mutation = useCancelReservation();
   const [expanded, setExpanded] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const isCancelled = status === "cancelled";
 
   const handleCancel = () => {
-    if (window.confirm("정말 취소하시겠습니까?")) {
-      mutation.mutate(id);
-    }
+    setConfirmOpen(false);
+    mutation.mutate(id);
   };
 
   return (
@@ -81,7 +82,7 @@ export function ReservationCard({
           {!isCancelled && (
             <Button
               disabled={mutation.isPending}
-              onClick={handleCancel}
+              onClick={() => setConfirmOpen(true)}
               size="sm"
               variant="outline-red"
             >
@@ -90,6 +91,33 @@ export function ReservationCard({
           )}
         </div>
       </div>
+
+      {/*
+       * 네이티브 confirm은 브라우저마다 다르게 그려지고 무엇을 취소하는지 보여줄
+       * 자리가 없다. 좌석을 본문에 적어 두면 카드가 여러 장일 때 잘못 누르는 것을 막는다.
+       */}
+      <Dialog
+        onClose={() => setConfirmOpen(false)}
+        open={confirmOpen}
+        title="예매를 취소할까요?"
+      >
+        <div className="space-y-xs">
+          <p className="text-body-sm text-body-aa">
+            취소하면 좌석 {seatIds.length}석이 다시 예매 가능해집니다. 되돌릴 수
+            없습니다.
+          </p>
+          <p className="text-body-sm text-ink">{seatIds.join(", ")}</p>
+        </div>
+
+        <div className="flex justify-end gap-md">
+          <Button onClick={() => setConfirmOpen(false)} size="sm" variant="text">
+            돌아가기
+          </Button>
+          <Button onClick={handleCancel} size="sm" variant="outline-red">
+            취소하기
+          </Button>
+        </div>
+      </Dialog>
     </Card>
   );
 }

@@ -165,4 +165,19 @@
     /* keep-all이 좌석 ID·세션 ID 같은 긴 무공백 토큰을 넘치게 하는 것만 예외 처리 */
     overflow-wrap: break-word;
   }
+
+  /*
+   * 모달 백드롭. docs/UI_GUIDE.md "이미지 위 텍스트"의 ink 단색 72%를 그대로 쓴다 —
+   * 새 색을 도입하지 않고, backdrop-filter는 쓰지 않는다(AI 슬롭 안티패턴 1번).
+   * Tailwind의 backdrop: 변형 대신 여기 두는 이유는 이 파일이 토큰의 단일 소스이기 때문이다.
+   *
+   * 값이 var(--color-ink)가 아니라 리터럴인 것은 의도적이다. ::backdrop이 원본
+   * 요소의 커스텀 프로퍼티를 상속하는 것은 Safari 17.4 / Chrome 122부터라,
+   * 그 이전 브라우저에서는 변수가 무효가 되고 opacity만 남아 딤이 통째로
+   * 사라진다. 이 파일에서 --color-ink를 바꾸면 아래 값도 같이 바꾼다.
+   */
+  dialog::backdrop {
+    background-color: #25282b; /* = --color-ink */
+    opacity: 0.72;
+  }
 }

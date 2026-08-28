@@ -3,6 +3,7 @@
 import type { JSX } from "react";
 
 import { ReservationList } from "@/components/reservation/ReservationList";
+import { Toast } from "@/components/toast/Toast";
 import { Band } from "@/components/ui/Band";
 import { useMyReservations } from "@/hooks/use-my-reservations";
 
@@ -32,6 +33,9 @@ export default function ReservationsPage(): JSX.Element {
           {data && <ReservationList reservations={data} />}
         </div>
       </Band>
+
+      {/* use-cancel-reservation이 세팅하는 취소 성공·실패 메시지의 출구 */}
+      <Toast />
     </main>
   );
 }

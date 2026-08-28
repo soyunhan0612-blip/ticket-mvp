@@ -18,19 +18,31 @@
 4. **4석 상한** — 5번째 좌석을 눌러 보세요. 클라이언트뿐 아니라 `POST /api/holds`에서도 거절합니다 (`src/lib/seat-rules.ts`를 route handler가 재사용).
 5. **좌석 경합** — 같은 좌석 URL을 **시크릿 창**으로 하나 더 엽니다(익명 쿠키가 분리돼 다른 사용자가 됩니다). 한쪽에서 좌석을 잡으면 반대쪽은 3초 안에 회색으로 바뀌고, 같은 좌석을 동시에 잡으면 한쪽만 성공하고 나머지는 **선택 묶음 전체가** 롤백됩니다.
 6. **[/reservations](https://ticket-mvp-eight.vercel.app/reservations)** — 예매 확정 후 내역과 취소. 취소하면 좌석이 다시 예매 가능으로 돌아옵니다.
-7. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 전체·예매가능·홀드중·판매완료 4개 카드와 읽기 전용 좌석맵. 위에서 잡은 좌석이 여기 반영됩니다. (Basic Auth)
-8. **[/seller/new](https://ticket-mvp-eight.vercel.app/seller/new)** — 공연 등록과 AI 설명 스트리밍. (Basic Auth)
+7. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 전체·예매가능·홀드중·판매완료 4개 카드와 읽기 전용 좌석맵. 위에서 잡은 좌석이 여기 반영됩니다. (로그인 필요)
+8. **[/seller/new](https://ticket-mvp-eight.vercel.app/seller/new)** — 공연 등록과 AI 설명 스트리밍. (로그인 필요)
 
 > 5번 장면의 데모 GIF는 아직 첨부하지 않았습니다. 추가 예정 경로는 `docs/assets/two-tab-seat-conflict.gif`입니다.
 
 ## 심사자용 계정
 
-`/admin`·`/seller` 이하 경로와 `/api/admin` API는 미들웨어의 환경변수 기반 Basic Auth 뒤에 있습니다.
+`/admin`·`/seller` 이하 경로와 `/api/admin` API는 미들웨어의 환경변수 기반 인증 뒤에 있습니다. 미인증 상태로 들어가면 **주소는 그대로 둔 채 로그인 모달**이 뜹니다.
 
 - 사용자명: `<BASIC_AUTH_USER 값>`
 - 비밀번호: `<BASIC_AUTH_PASS 값>`
 
-`.env.example`을 복사만 하고 두 값을 채우지 않으면 `/admin`·`/seller`는 401로 닫힙니다. 빈 값은 인증 통과가 아니라 거부로 처리됩니다 — [그렇지 않았던 시절의 결함과 수정](#ai-협업-방식)이 아래에 있습니다.
+`.env.example`을 복사만 하고 두 값을 채우지 않으면 `/admin`·`/seller`는 닫힙니다. 빈 값은 인증 통과가 아니라 거부로 처리됩니다 — [그렇지 않았던 시절의 결함과 수정](#ai-협업-방식)이 아래에 있습니다.
+
+CLI로 확인할 때는 Basic 헤더가 그대로 통합니다. 브라우저에 네이티브 로그인 프롬프트를 띄우는 `WWW-Authenticate` 응답만 걷어냈고, 헤더 검증 자체는 남아 있습니다.
+
+```bash
+# 페이지는 자격증명만으로 열립니다
+curl -u '<user>:<pass>' http://localhost:3000/admin
+
+# /api/admin/stats는 익명 userId 쿠키도 함께 봅니다(좌석 스냅샷의 mine 판정에 쓰입니다).
+# 브라우저는 미들웨어가 발급한 쿠키를 자동으로 싣지만 curl은 직접 넣어야 합니다.
+curl -u '<user>:<pass>' -b 'userId=local-check' \
+  'http://localhost:3000/api/admin/stats?sessionId=<회차 id>'
+```
 
 ## 기술 스택과 아키텍처
 
@@ -94,7 +106,7 @@ TanStack Query와 Jotai는 목록에 스택을 더하기 위해 선택한 것이
 - **좌석 키보드 내비게이션 / 스크린리더** — 2,000석 SVG에 공간 이동 규칙과 정확한 라벨링을 적용하려면 별도 접근성 설계가 필요합니다. 불완전한 지원을 추가하는 대신 MVP에서 명시적으로 제외했습니다.
 - **E2E (Playwright)** — 10일 범위에서는 순수 로직·Store·API route 테스트와 배포본 수동 시나리오에 우선순위를 뒀습니다.
 - **모바일 터치 제스처 정밀 튜닝** — 줌/팬은 데스크톱의 wheel·pointer와 SVG `viewBox` 기준으로 구현했습니다. 모바일 pinch·관성·경계 처리는 별도 튜닝이 필요합니다.
-- **실사용자 인증·결제** — 좌석 경합과 예매 상태 전환 검증에 집중하기 위해 관람객은 HTTP-only 익명 UUID 쿠키, `/admin`·`/seller`는 Basic Auth를 사용합니다.
+- **실사용자 인증·결제** — 좌석 경합과 예매 상태 전환 검증에 집중하기 위해 관람객은 HTTP-only 익명 UUID 쿠키, `/admin`·`/seller`는 환경변수 계정 1개를 씁니다. 로그인 폼이 자격증명을 대조해 HTTP-only 쿠키로 발급할 뿐 사용자 테이블도 비밀번호 해싱도 없습니다 — 심사자 한 명을 위한 문지기이지 계정 시스템이 아닙니다.
 - **CSRF 토큰** — MVP에서는 `sameSite: 'lax'` 쿠키로 대체했습니다. 실서비스라면 별도 CSRF 토큰이 필요합니다.
 - **좌석 배치 에디터** — 드래그 기반 에디터는 일정 대부분을 소비하므로 500·1,000·2,000석 프리셋 3개로 제한했습니다.
 
@@ -175,7 +187,7 @@ Day 9에 인메모리 저장소를 **Upstash Redis**로 교체했습니다. 좌�
 
 - 프로덕션: https://ticket-mvp-eight.vercel.app
 - Redis 환경변수를 적용해 배포 완료. 프로덕션에서 좌석 hold를 실행하면 Upstash에 `session:<id>:seats`와 `session:<id>:version` 키가 생성되는 것으로 Redis 연결을 확인했습니다.
-- Basic Auth(`/admin`·`/seller/new`), AI 설명 생성도 프로덕션에서 동작을 확인했습니다.
+- 로그인 게이트(`/admin`·`/seller/new`), AI 설명 생성도 프로덕션에서 동작을 확인했습니다.
 
 ## 문서
 

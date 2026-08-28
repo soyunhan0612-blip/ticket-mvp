@@ -93,14 +93,25 @@ DS는 그림자를 쓰지 않는다. **깊이는 표면 극성 반전(dark ↔ l
 
 ## 컴포넌트
 
-재사용 프리미티브는 **카드·버튼·입력 세 종류**다 (`UX_PRINCIPLES.md` 일관성). `Band`는 레이아웃 래퍼라 별개다. 새 변형을 만들기 전에 기존을 재조합할 수 있는지 먼저 본다.
+재사용 프리미티브는 **카드·버튼·입력·다이얼로그 네 종류**다 (`UX_PRINCIPLES.md` 일관성). `Band`는 레이아웃 래퍼라 별개다. 새 변형을 만들기 전에 기존을 재조합할 수 있는지 먼저 본다.
 
 | 파일 | 비고 |
 |---|---|
 | `components/ui/Button.tsx` | `primary` / `outline-red` / `outline-dark` / `outline-on-dark` / `text` / `text-on-dark`. `<Link>`에는 `buttonClassName()` 재사용 |
 | `components/ui/Card.tsx` | `tone="light" \| "dark"`. `<Link>`·`<button>`에는 `cardClassName()` 재사용 |
 | `components/ui/TextInput.tsx` | `id`+`label` 필수. textarea·select에는 `FIELD_CLASS_NAMES` 재사용 |
+| `components/ui/Dialog.tsx` | 네이티브 `<dialog>` + `showModal()`. `dismissible={false}`는 인증 벽 전용 |
 | `components/ui/Band.tsx` | `tone` × `width` |
+
+`Dialog`가 조합물이 아니라 프리미티브인 이유는 **서로 무관한 두 화면이 공유**하기 때문이다 — `/reservations`의 예매 취소 확인과 `/admin`·`/seller`의 로그인 벽. 한쪽에만 쓰였다면 `components/reservation/`에 뒀을 것이다.
+
+### 다이얼로그
+
+- **네이티브 `<dialog>`의 `showModal()`만 쓴다.** 포커스 트랩·ESC·배경 inert·top-layer를 브라우저가 처리한다. `createPortal`로 오버레이를 손수 쌓지 않는다 — 접근성 코드를 다시 쓰는 순간 가장 먼저 틀리는 부분이다
+- 표면은 **카드와 같은 규칙**이다: 6px 라디우스, 1px 헤어라인, 그림자 없음. pill이 아니다
+- 백드롭은 `globals.css`의 `dialog::backdrop`에서 **ink 단색 72%** — 아래 "이미지 위 텍스트"와 같은 값이고 같은 이유다. `backdrop-filter`는 쓰지 않는다
+- **아이콘 X 닫기 버튼을 만들지 않는다** (아이콘 단독 버튼 금지). 닫기는 호출자가 텍스트 버튼으로 제공한다
+- jsdom 30은 `showModal()`을 구현하지 않는다. `vitest.setup.ts`가 `open` 속성만 토글하는 stub을 둔다 — 열림/닫힘 계약은 그대로 검증되고, 포커스 트랩은 브라우저 몫이라 테스트하지 않는다
 
 화면 전용 조합물은 `components/{home,show,seat,seller,admin}/`에 둔다. `home/`은 `/`
 전용이고, `show/`처럼 도메인 이름을 가진 디렉터리는 여러 화면이 공유하는 조합물을 담는다.

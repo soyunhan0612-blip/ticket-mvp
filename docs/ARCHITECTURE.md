@@ -154,7 +154,13 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 입력 길이 상한(공연명 100자 등), 사용자 입력은 구분자로 감싸 프롬프트 인젝션 완화. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 
 ### /admin·/seller
-middleware Basic Auth. 환경변수 계정 1개, README에 심사자용 계정 명시.
+middleware 인증. 환경변수 계정 1개, README에 심사자용 계정 명시.
+
+자격증명은 `POST /api/auth/login`이 대조하고 HTTP-only 쿠키(`SameSite=Lax`, 12시간)로 발급한다. 미들웨어는 그 쿠키를 `lib/basic-auth.ts`의 `verifyBasicAuthCookie`로 검증하며, **`WWW-Authenticate` 헤더는 보내지 않는다** — 그 헤더가 브라우저 네이티브 로그인 프롬프트를 띄우는 유일한 원인이라 자체 모달로 바꾸려면 없애야 했다. `Authorization: Basic` 헤더 검증은 남아 있어 심사자용 `curl -u`가 그대로 동작하고, 헤더를 광고하지 않으므로 프롬프트는 뜨지 않는다.
+
+미인증 응답은 두 갈래다. `/api/admin` 이하는 401 JSON, 나머지 보호 경로는 `/login`으로 **리라이트**한다(리다이렉트가 아니다). 주소창이 원래 경로로 남으므로 로그인 후 `router.refresh()` 한 번이면 같은 URL에서 실제 화면이 렌더되고, 되돌아갈 경로를 쿼리로 실어 나르지 않으니 오픈 리다이렉트 경로도 생기지 않는다.
+
+자격증명이 비어 있으면 열리는 방향이 아니라 닫히는 방향으로 실패한다 — 쿠키 경로도 `verifyBasicAuth`에 위임하므로 이 규칙이 한 곳에만 있다.
 
 ### 보안 헤더
 `next.config`에 `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`.
