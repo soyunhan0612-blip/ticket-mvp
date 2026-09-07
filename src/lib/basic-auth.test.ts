@@ -167,18 +167,30 @@ describe("verifyBasicAuthCookie", () => {
 
 describe("isProtectedApiPath", () => {
   it.each(["/api/admin", "/api/admin/stats"])(
-    "%s를 API 경로로 본다",
+    "%s를 보호되는 API 경로로 본다",
     (pathname) => {
-      expect(isProtectedApiPath(pathname)).toBe(true);
+      expect(isProtectedApiPath(pathname, "GET")).toBe(true);
     },
   );
 
-  it.each(["/admin", "/admin/dashboard", "/seller/new", "/api/shows"])(
+  it.each(["/admin", "/admin/dashboard", "/seller/new"])(
     "%s를 API 경로로 보지 않는다",
     (pathname) => {
-      expect(isProtectedApiPath(pathname)).toBe(false);
+      expect(isProtectedApiPath(pathname, "GET")).toBe(false);
     },
   );
+
+  /*
+   * 미인증 응답의 형태를 가르는 함수라, 쓰기가 막힌 API는 여기서도 참이어야 한다.
+   * 아니면 POST /api/shows가 로그인 화면 HTML을 200으로 받는다.
+   */
+  it("쓰기가 막힌 API의 쓰기 요청을 API 경로로 본다", () => {
+    expect(isProtectedApiPath("/api/shows", "POST")).toBe(true);
+  });
+
+  it("쓰기가 막힌 API라도 읽기 요청은 API 경로로 보지 않는다", () => {
+    expect(isProtectedApiPath("/api/shows", "GET")).toBe(false);
+  });
 });
 
 describe("isProtectedPath", () => {
@@ -189,13 +201,43 @@ describe("isProtectedPath", () => {
     "/api/admin",
     "/api/admin/stats",
   ])("%s를 보호한다", (pathname) => {
-    expect(isProtectedPath(pathname)).toBe(true);
+    expect(isProtectedPath(pathname, "GET")).toBe(true);
   });
 
   it.each(["/shows", "/api/shows", "/api/holds"])(
-    "%s를 보호하지 않는다",
+    "%s의 읽기를 보호하지 않는다",
     (pathname) => {
-      expect(isProtectedPath(pathname)).toBe(false);
+      expect(isProtectedPath(pathname, "GET")).toBe(false);
+    },
+  );
+
+  /*
+   * 셀러 화면은 /seller 뒤에 있지만 그 화면이 부르는 API는 게이트 밖이었다.
+   * 쿠키 존재 확인만으로는 아무도 걸러지지 않는다 — 미들웨어가 모든 방문자에게
+   * 익명 UUID를 발급하기 때문이다.
+   */
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "/api/shows의 %s 요청을 보호한다",
+    (method) => {
+      expect(isProtectedPath("/api/shows", method)).toBe(true);
+    },
+  );
+
+  it.each(["GET", "HEAD", "OPTIONS"])(
+    "/api/shows의 %s 요청은 공개 목록이라 보호하지 않는다",
+    (method) => {
+      expect(isProtectedPath("/api/shows", method)).toBe(false);
+    },
+  );
+
+  it("메서드를 소문자로 받아도 쓰기로 판정한다", () => {
+    expect(isProtectedPath("/api/shows", "post")).toBe(true);
+  });
+
+  it.each(["/api/holds", "/api/reservations"])(
+    "%s의 쓰기는 예매 흐름이라 보호하지 않는다",
+    (pathname) => {
+      expect(isProtectedPath(pathname, "POST")).toBe(false);
     },
   );
 });

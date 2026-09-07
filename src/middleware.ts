@@ -51,9 +51,9 @@ function withUserIdCookie(
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isProtectedPath(pathname) && !isAuthenticated(request)) {
+  if (isProtectedPath(pathname, request.method) && !isAuthenticated(request)) {
     // API는 모달을 띄울 자리가 없다. 화면 없이 상태만 돌려준다.
-    if (isProtectedApiPath(pathname)) {
+    if (isProtectedApiPath(pathname, request.method)) {
       return withUserIdCookie(
         request,
         NextResponse.json({ error: "unauthorized" }, { status: 401 }),
