@@ -9,12 +9,15 @@ src/
 │   ├── (viewer)/reservations/
 │   ├── seller/new/
 │   ├── admin/
-│   └── api/{shows,sessions,holds,reservations,ai}/
+│   ├── login/
+│   └── api/{shows,sessions,holds,reservations,ai,admin,auth}/
 ├── components/seat/                   # SeatMap, Seat, ZoomPanSvg, SelectionBar, HoldTimer
 ├── atoms/                             # Jotai atomFamily
+├── hooks/                             # Tanstack Query 훅 (use-seat-snapshot, use-hold-mutation …)
 ├── lib/                               # 순수 로직 (TDD 강제 구간)
 ├── services/                          # Store 인터페이스 + 구현체
-└── types/
+├── types/
+└── middleware.ts                      # 익명 userId 쿠키 발급 + /admin·/seller 게이트
 ```
 
 ## 렌더링 경계 (Day 1에 긋고 끝까지 유지)
@@ -59,6 +62,28 @@ POST /api/holds → SeatStore.hold (Lua atomic) → 낙관적 업데이트
 POST /api/reservations → ReservationStore.create → SeatStore.confirmSeats (원자적) + Reservation 레코드 생성
 ```
 
+도메인 소유 관계는 다음과 같다. `Session`은 `Show`에 속하고, 좌석은 **저장되지 않는다** — `Show.presetId`에서
+`generateSeatsForPreset`으로 매번 파생시킨다. 그래서 `Seat` 타입에 상태 필드가 없고, 점유 상태는 `SeatStore`가 따로 들고 있다.
+
+```
+Show ──┬─ presetId ──→ 좌석 배치 (파생, 저장 안 함)
+       └─ Session[] ──┬─ SeatStore   : 세션별 held/sold 스냅샷
+                      └─ Reservation : 확정된 예약 레코드
+```
+
+조회 경로는 예매 경로와 갈라진다. Admin 점유 현황은 다음처럼 흐른다.
+
+```
+GET /api/admin/stats?sessionId=…
+   ↓ ShowStore.getBySessionId  → 회차가 속한 공연과 presetId
+   ↓ SeatStore.getSnapshot     → held/sold만 담긴 sparse map
+   ↓ 라우트 안에서 집계         → total / available / held / sold
+```
+
+**집계가 route handler 안에 인라인으로 있다.** Admin 한 곳만 쓰는 동안은 문제가 없었지만,
+같은 수치를 다른 소비자가 필요로 하는 순간 `src/lib/`의 순수 함수로 추출해야 한다
+(`docs/AI_OPERATIONS_EXPANSION_PLAN.md` 참조).
+
 ## Store 인터페이스
 
 route handler는 쿠키에서 `userId`를 읽어 넘긴다. 요청 바디·쿼리에서 절대 받지 않는다 (IDOR).
@@ -68,7 +93,7 @@ route handler는 쿠키에서 `userId`를 읽어 넘긴다. 요청 바디·쿼�
 //    요청 바디·쿼리에서 절대 받지 않는다 (IDOR).
 interface SeatStore {
   getSnapshot(sessionId, userId): Promise<SeatSnapshot>     // 폴링 대상. userId는 mine 판정용
-  hold(sessionId, seatIds, userId, ttlMs): Promise<HoldResult> // 충돌 시 409 + 충돌 좌석 목록
+  hold(sessionId, seatIds, userId): Promise<Hold | { conflict: string[] }> // 충돌 좌석이 하나라도 있으면 conflict만 돌려준다(부분 hold 없음). TTL은 lib/hold.ts의 HOLD_TTL_MS
   release(sessionId, seatIds, userId): Promise<void>        // held 해제. 소유자 불일치 시 403
   confirmSeats(sessionId, seatIds, userId): Promise<void>   // held→sold. 소유자 불일치 403. 예약 생성은 ReservationStore
   releaseSold(sessionId, seatIds, userId): Promise<void>    // sold→available. 소유자 불일치 403. cancel 경로 전용 (방어 심층화)
@@ -78,7 +103,8 @@ interface SeatStore {
 interface ShowStore {   // create는 공연 + 회차 + 좌석 프리셋을 함께 생성
   list(): Promise<Show[]>                                    // mock 시드 + 셀러 등록분
   get(id): Promise<{ show: Show; sessions: Session[] } | null>
-  create(input): Promise<{ show: Show; sessions: Session[] }>
+  getBySessionId(sessionId): Promise<{ show: Show; session: Session } | null> // 회차 → 공연 역참조
+  create(input: unknown): Promise<{ show: Show; sessions: Session[] }>        // 구현체가 zod로 파싱
 }
 
 interface ReservationStore {
@@ -149,6 +175,8 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
 ### 쿠키
 `httpOnly` + `sameSite: 'lax'` + `secure`(프로덕션). 클라이언트 JS가 읽을 일이 없으니 손해가 없고, XSS가 나도 세션을 못 훔친다.
+
+익명 `userId`는 미들웨어의 `withUserIdCookie`가 발급하는데 **응답에만 실린다** — 같은 요청의 route handler는 아직 그 쿠키를 보지 못한다. 브라우저는 다음 요청부터 쿠키를 되돌려주므로 문제가 없지만, 쿠키를 보관하지 않고 `Authorization: Basic`만 보내는 호출자(스케줄러·`curl`)는 `getUserIdFromRequest`를 쓰는 라우트에서 매번 401을 맞는다. 기계 호출을 받을 엔드포인트는 신원 확인을 미들웨어 게이트에 맡기고 쿠키 검사를 두지 않는다 (ADR-007).
 
 ### AI 엔드포인트
 공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 입력 길이 상한(공연명 100자 등), 사용자 입력은 구분자로 감싸 프롬프트 인젝션 완화. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
