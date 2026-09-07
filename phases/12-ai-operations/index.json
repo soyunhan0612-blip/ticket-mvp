@@ -7,7 +7,8 @@
       "name": "seat-stats",
       "status": "completed",
       "started_at": "2026-09-07T23:36:31+0900",
-      "summary": "좌석 점유 집계를 순수 computeSeatStats 함수로 추출하고 Admin stats 라우트가 이를 재사용하도록 리팩터링"
+      "summary": "좌석 점유 집계를 순수 computeSeatStats 함수로 추출하고 Admin stats 라우트가 이를 재사용하도록 리팩터링",
+      "completed_at": "2026-09-07T23:43:27+0900"
     },
     {
       "step": 1,
