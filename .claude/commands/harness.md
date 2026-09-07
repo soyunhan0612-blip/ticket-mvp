@@ -9,8 +9,13 @@
 
 ```bash
 python3 scripts/execute.py {phase}          # 순차 실행
+python3 scripts/execute.py {phase} --once   # pending step 하나만 실행하고 종료
 python3 scripts/execute.py {phase} --push   # 실행 후 push
 ```
+
+`--once`는 step 하나를 끝내면 멈춘다. 같은 명령을 다시 실행하면 다음 pending step으로
+이어지고, 마지막 step을 끝냈을 때만 phase가 `completed`로 마감된다 — 따라서 `--push`도
+그때만 발동한다. step마다 결과를 검토하고 넘어갈 때 쓴다.
 
 execute.py가 자동으로 하는 것:
 
