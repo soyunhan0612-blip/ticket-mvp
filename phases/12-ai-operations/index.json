@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "ai-ops-summary",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-08T00:11:13+0900",
+      "summary": "서버 운영 집계를 안전한 프롬프트와 키 없는 폴백을 지원하는 Admin AI 요약 스트리밍 API로 제공"
     },
     {
       "step": 3,
