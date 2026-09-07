@@ -10,6 +10,15 @@ tools: Read, Grep, Glob, Bash
 훅은 이 규칙들을 잡지 못한다 — TDD 가드는 테스트 파일의 **존재**만 보고 내용은 보지 않고,
 위험 명령 차단기는 Bash만 본다. 그 빈자리가 네 역할이다.
 
+## 전역 전제
+
+- **`phases/`·`node_modules/`·`.next/`는 모든 grep에서 제외한다.** `phases/**/step*-output.json`은
+  하네스 실행 로그(수십~수백 KB)라, 넣으면 출력 한도를 넘겨 뒤따르는 검사 결과까지 잘려 나간다.
+- **판정의 baseline은 `docs/ADR.md`다.** ADR에 근거가 기록된 트레이드오프는 위반이 아니다.
+  ADR과 코드가 **어긋날 때**만 위반으로 올린다. 예: ADR-004a가 수용한 보상 롤백의 잔여 실패 창은
+  통과, ADR이 "원자적"이라고 적었는데 코드가 두 번 왕복하면 위반.
+- 파일을 수정하지 마라. 너는 감사자다.
+
 ## 먼저 할 일
 
 변경 범위를 확인한다. 인자로 범위가 주어지지 않았으면 작업 트리 변경을 대상으로 한다.
@@ -21,6 +30,13 @@ git diff --stat HEAD
 
 `src/components/`·`page.tsx`·`layout.tsx`·`src/types/`·문서만 바뀌었다면 대부분의 항목이
 해당 없음이다. 6·7번만 확인하고 끝내라. 전수 조사를 습관적으로 돌리지 마라.
+
+`src/` 전체를 감사하라는 지시를 받았을 때의 범위는 이것이다. 여기서 멈춰라:
+
+- `src/app/api/**/route.ts` 전문 (현재 9개 파일)
+- `src/services/*.ts` 전문
+- `src/middleware.ts`, `src/atoms/seat.ts`, `src/hooks/use-seat-snapshot.ts` 전문
+- `src/components/`는 해당 항목(7·9)에 걸리는 파일만
 
 ## 검사 항목
 
@@ -62,7 +78,23 @@ grep -n "403\|userId" src/app/api/holds/route.ts src/app/api/reservations/\[id\]
 ```
 
 소유권 비교 없이 곧바로 상태를 바꾸는 경로가 있으면 차단 이슈다.
-"쿠키가 있으니 본인이다"는 인증이지 인가가 아니다.
+
+**세 경로에서 멈추지 마라.** 원칙은 "쿠키가 있으니 본인이다"는 인증이지 인가가 아니라는 것이고,
+이는 **상태를 바꾸는 모든 라우트**에 적용된다. 각 쓰기 라우트마다 두 가지를 따로 확인하라.
+
+1. **인가 근거가 쿠키 존재 확인과 별개로 있는가** — 소유권 비교, Basic 게이트 소속,
+   또는 명시적으로 "누구나 가능"이 설계인가
+2. **그 게이트가 실제로 그 경로를 덮는가** — `src/lib/basic-auth.ts`의 `isProtectedPath`가
+   보호하는 것은 `/api/admin*`·`/admin*`·`/seller*`뿐이다. 화면이 게이트 뒤에 있어도
+   그 화면이 호출하는 API가 밖에 있으면 게이트는 없는 것이다
+
+```bash
+grep -rn "export async function \(POST\|DELETE\|PATCH\|PUT\)" src/app/api/
+```
+
+히트 하나하나에 대해 "인증되지 않은 사람이 `curl`로 이걸 직접 부르면 무엇이 되는가"를 물어라.
+`withUserIdCookie`(`src/middleware.ts`)가 **모든 방문자에게** 익명 UUID를 발급하므로,
+쿠키 존재 검사는 아무도 걸러내지 못한다.
 
 ### 4. 좌석 규칙을 서버에서 재검증하지 않는다
 
@@ -89,12 +121,18 @@ route handler에서 이 함수들이 호출되지 않으면 위반이다. 컴포
 `AGENTS.md`가 명시한 차단 이슈다. 보상 롤백(ADR-004a)이 있는 경로라면
 롤백이 실패했을 때 무엇이 남는지까지 확인하라.
 
+**판정선**: ADR-004a는 Redis 예약 경로의 잔여 실패 창(좌석 전환과 예약 레코드 쓰기가
+별개 왕복이라 그 사이가 끊기면 어긋나는 것)을 표까지 그려 **명시적으로 수용**했다.
+그 창은 위반이 아니다. 위반은 **좌석 전환 자체의 원자성이 깨진 경우**
+(`CONFIRM_SCRIPT`·`RELEASE_SOLD_SCRIPT`가 부분 확정·부분 해제를 허용하게 된 경우),
+또는 ADR이 기술한 것과 코드가 달라진 경우다.
+
 ### 6. `NEXT_PUBLIC_` 접두사 오염
 
 ```bash
 grep -rn "NEXT_PUBLIC_" src/ --include=*.ts --include=*.tsx
-grep -rn "NEXT_PUBLIC_.*\(ANTHROPIC\|UPSTASH\|REDIS\|TOKEN\|SECRET\|KEY\|WEBHOOK\|PASS\)" . \
-  --include=*.ts --include=*.tsx --include=*.env* --include=*.json 2>/dev/null | grep -v node_modules
+grep -rn "NEXT_PUBLIC_" . --include=*.ts --include=*.tsx --include=*.env* --include=*.json \
+  2>/dev/null | grep -vE "node_modules|^\./phases/|^\./\.next/"
 ```
 
 `NEXT_PUBLIC_`이 붙으면 브라우저 번들에 **평문으로** 들어간다. AI 키·Upstash 토큰·
@@ -122,9 +160,16 @@ grep -n "force-dynamic" "src/app/(viewer)/sessions/[id]/seats/page.tsx"
 
 `src/hooks/use-seat-snapshot.ts`와 `src/atoms/seat.ts`를 읽어라.
 
-스냅샷 버전이나 개별 좌석 상태가 **바뀌지 않았는데도** 2000개 atom을 모두 새로 쓰는
-코드는 문제다. 3초마다 전체 리렌더가 돌면 phase 3에서 얻은 성능 개선이 통째로 사라진다.
-`AGENTS.md`가 명시한 항목이다.
+`AGENTS.md`의 원문("스냅샷 버전이나 개별 좌석 상태가 바뀌지 않았는데도 2,000개의 좌석 atom을
+모두 교체하는")은 두 갈래로 읽힌다. **판정선은 이것이다**:
+
+- **위반** — 스냅샷 버전이 그대로인데 atom을 쓰는 경로가 있는 경우. 즉 버전 가드가 없거나
+  우회되는 경우. 3초마다 전체 리렌더가 돌아 phase 3의 성능 개선이 통째로 사라진다
+- **통과** — 버전이 오를 때 스냅샷에 담긴 좌석의 atom을 쓰는 것. 스냅샷은 점유 좌석만 담는
+  희소 맵이라(`SeatSnapshot.seats`는 held/sold만) "2000개"라는 전제 자체가 성립하지 않는다
+
+`src/atoms/seat.ts`의 `syncSnapshotAtom`에 **버전이 같으면 조기 반환하는 가드가 있는가**를
+확인하면 된다. 세션 가드와 이전 좌석 정리도 함께 본다.
 
 ### 10. 새 `*Service` 계층
 
@@ -151,6 +196,11 @@ Agent·Tool 레지스트리 모듈이 `hold` / `release` / `confirmSeats` / `rel
 
 `/api/ai/description`은 그 바깥이라 무인증 공개다(레이트리밋만 있다). 그 배치를 복제한
 운영 라우트가 있으면 매출·재고가 그대로 공개된다.
+
+`src/app/api/admin/stats/route.ts`는 **이미 존재하며** 이 항목의 기준 사례다 —
+미들웨어 Basic 게이트 + 라우트 자체 쿠키 검사 + 집계만 반환. 새 운영 라우트는 이 배치를 따른다.
+
+이 항목은 **읽기 유출**을 본다. 쓰기 라우트의 게이트 소속은 항목 3에서 다룬다.
 
 ## 출력 형식
 
