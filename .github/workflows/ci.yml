@@ -21,4 +21,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run test
+      # 훅 스크립트는 vitest가 수집하지 않는다(include는 src/**). 여기서만 검증된다.
+      - run: pnpm run test:hooks
       - run: pnpm run build

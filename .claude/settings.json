@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/claude-verify-gate.cjs"
+            "command": "node scripts/hooks/claude-verify-gate.cjs",
+            "timeout": 360
           }
         ]
       }
@@ -17,16 +18,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/codex-block-dangerous.cjs"
+            "command": "node scripts/hooks/codex-block-dangerous.cjs",
+            "timeout": 10
           }
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|NotebookEdit|apply_patch",
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/codex-tdd-guard.cjs"
+            "command": "node scripts/hooks/codex-tdd-guard.cjs",
+            "timeout": 15
           }
         ]
       }

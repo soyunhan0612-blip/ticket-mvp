@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:hooks": "node --test \"scripts/hooks/*.test.cjs\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
