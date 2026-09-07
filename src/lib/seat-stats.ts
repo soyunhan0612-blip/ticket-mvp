@@ -9,6 +9,11 @@ export interface SeatStats {
   sold: number;
 }
 
+export function computeSalesRate(sold: number, total: number): number {
+  if (total === 0) return 0;
+  return Math.round((sold / total) * 1_000) / 10;
+}
+
 export function computeSeatStats(
   seats: SeatSnapshot["seats"],
   presetId?: SeatPresetId,

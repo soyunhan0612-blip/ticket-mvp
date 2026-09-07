@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { COLS_PER_ROW, ROWS_PER_SECTION, TOTAL_SEATS } from "@/lib/seat-map";
-import { computeSeatStats } from "@/lib/seat-stats";
+import { computeSalesRate, computeSeatStats } from "@/lib/seat-stats";
 import type { SeatSnapshot } from "@/types";
 
 describe("computeSeatStats", () => {
@@ -107,5 +107,15 @@ describe("computeSeatStats", () => {
       held: 1,
       sold: 0,
     });
+  });
+});
+
+describe("computeSalesRate", () => {
+  it("rounds the sold percentage to one decimal place", () => {
+    expect(computeSalesRate(1, 3)).toBe(33.3);
+  });
+
+  it("returns zero when total is zero", () => {
+    expect(computeSalesRate(5, 0)).toBe(0);
   });
 });
