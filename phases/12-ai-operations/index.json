@@ -2,9 +2,28 @@
   "project": "티켓 예매 MVP",
   "phase": "12-ai-operations",
   "steps": [
-    { "step": 0, "name": "seat-stats", "status": "pending" },
-    { "step": 1, "name": "operations-api", "status": "pending" },
-    { "step": 2, "name": "ai-ops-summary", "status": "pending" },
-    { "step": 3, "name": "admin-ops-panel", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "seat-stats",
+      "status": "completed",
+      "started_at": "2026-09-07T23:36:31+0900",
+      "summary": "좌석 점유 집계를 순수 computeSeatStats 함수로 추출하고 Admin stats 라우트가 이를 재사용하도록 리팩터링"
+    },
+    {
+      "step": 1,
+      "name": "operations-api",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "ai-ops-summary",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "admin-ops-panel",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-09-07T23:36:31+0900"
 }
