@@ -194,6 +194,7 @@ Day 9에 인메모리 저장소를 **Upstash Redis**로 교체했습니다. 좌�
 - [PRD](docs/PRD.md) — 요구사항·범위·검증 시나리오
 - [Architecture](docs/ARCHITECTURE.md) — 렌더링 경계·데이터 흐름·Store 인터페이스
 - [ADR](docs/ADR.md) — 기술 선택과 트레이드오프
+- [AI Operations Expansion](docs/AI_OPERATIONS_EXPANSION_PLAN.md) — 조회 전용 AI Agent·n8n 확장의 경계와 단계
 - [Progress Journal](docs/PROGRESS.md) — Day별 실제 산출물과 남은 검증
 - [Perf Measurement](docs/PERF_MEASUREMENT.md) — 자동/수동 측정 절차와 재현 방법
 - [UX Principles](docs/UX_PRINCIPLES.md) / [UI Guide](docs/UI_GUIDE.md) — UX 원칙과 UI 규칙

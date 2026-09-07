@@ -21,6 +21,7 @@
 4. 셀러 공연 등록 (좌석 배치 프리셋 3개 중 선택)
 5. AI 공연 설명 생성 (Haiku 4.5, 스트리밍, key 없을 때 fallback)
 6. Admin 실시간 점유 현황 (좌석맵 컴포넌트 재사용)
+7. AI 운영 조회 — 운영 현황 API, AI 요약, 조회 전용 Ticket Operations Agent, n8n 매진 임박 알림 (초기 6개 기능이 완성된 뒤의 확장 범위. Agent UI는 **텍스트 전용**이며 차트를 넣지 않는다 — 아래 3대 함정 2번은 그대로 유효하다. 경계와 단계는 `docs/AI_OPERATIONS_EXPANSION_PLAN.md`)
 
 ## MVP 제외 사항
 기간상 제외하되 README에 이유와 함께 적는다. 모르고 안 한 것과 알고 안 한 것은 다르게 읽힌다.
