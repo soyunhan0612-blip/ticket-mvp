@@ -36,7 +36,7 @@ src/
 ## 상태 관리
 
 ### 서버 상태 (Tanstack Query)
-- 공연 목록·상세는 RSC에서 prefetch → `HydrationBoundary`로 client 하이드레이트
+- 공연 목록·상세는 RSC에서 store를 직접 호출해 렌더한다. 클라이언트 쿼리가 없어 하이드레이트할 상태도 없다 — `HydrationBoundary`를 쓰는 곳은 좌석 페이지뿐이다
 - 좌석 스냅샷은 client에서 `refetchInterval: 3000`으로 폴링
 - 좌석 hold는 낙관적 업데이트 + 409 시 전체 롤백
 - `refetchIntervalInBackground: false` (기본값 유지) — 심사자가 탭을 열어둔 채 잊어버려도 호출이 나가지 않는다
@@ -134,9 +134,9 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
 **만료는 Redis TTL이 아니라 `expiresAt` 필드로 판정**. 만료된 필드가 Hash에 남은 상태에서 `HSETNX`를 호출하면 좌석을 다시 잡을 수 없으므로 단순한 lazy expiration만 사용하지 않는다. **hold Lua 스크립트 안에서 대상 좌석의 만료 여부를 확인하고 만료 필드를 제거한 뒤, 모든 좌석이 가능한 경우에만 한꺼번에 hold한다.** 하나라도 충돌하면 아무 좌석도 변경하지 않고 충돌 좌석 목록을 반환한다. `lib/hold.ts`의 만료 판정 규칙은 인메모리 구현과 Redis 스크립트 테스트에서 동일하게 검증한다.
 
-`confirm`과 `cancel`도 중간 상태를 남기지 않도록 원자적으로 처리:
-- **create(=confirm)**: 좌석 상태 스냅샷 백업 → `SeatStore.confirmSeats`로 held→sold → Reservation 레코드 생성 → 실패 시 `SeatStore.revertSold`로 롤백. Redis는 두 자료구조를 함께 갱신하는 단일 Lua 스크립트로 대체
-- **cancel**: 예약 소유권·상태 확인 → `SeatStore.releaseSold`로 sold→available (소유권 재검증) → 예약을 cancelled로 변경. Redis는 단일 Lua 스크립트로 처리
+`confirm`과 `cancel`은 **좌석 전환과 예약 레코드를 별개 연산으로** 처리한다. 좌석 전환 자체에는 부분 확정·부분 해제가 없고(Redis는 Lua), 그 뒤 레코드 쓰기가 실패하면 보상 롤백으로 되돌린다. 이 배치가 남기는 잔여 실패 창은 ADR-004a에 표로 기록돼 있다:
+- **create(=confirm)**: `SeatStore.confirmSeats`로 held→sold → Reservation 레코드 생성 → 실패 시 `SeatStore.revertSold`로 롤백. Redis는 레코드와 유저 인덱스를 하나의 Lua로 함께 쓰지만, 좌석 전환은 그 앞의 별개 호출이다
+- **cancel**: 예약 소유권·상태 확인 → `SeatStore.releaseSold`로 sold→available (소유권 재검증) → 예약을 cancelled로 변경. 레코드 갱신은 `hset` 한 번이며 좌석 전환과 묶이지 않는다
 - hold/release/confirmSeats/releaseSold/revertSold/cancel/만료 정리 시 세션 `version` 증가
 
 ## 폴링 페이로드 — 점유된 좌석만 보낸다
