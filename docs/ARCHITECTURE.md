@@ -75,14 +75,20 @@ Show ──┬─ presetId ──→ 좌석 배치 (파생, 저장 안 함)
 
 ```
 GET /api/admin/stats?sessionId=…
-   ↓ ShowStore.getBySessionId  → 회차가 속한 공연과 presetId
-   ↓ SeatStore.getSnapshot     → held/sold만 담긴 sparse map
-   ↓ 라우트 안에서 집계         → total / available / held / sold
+   ↓ ShowStore.getBySessionId       → 회차가 속한 공연과 presetId
+   ↓ SeatStore.getSnapshot          → held/sold만 담긴 sparse map
+   ↓ lib/seat-stats.computeSeatStats → total / available / held / sold
+
+GET /api/admin/operations?showId=…&date=…
+   ↓ ShowStore.list → get           → showId 필터 후 회차까지 재조회
+   ↓ SeatStore.getSnapshot          → date로 거른 회차마다 한 번
+   ↓ lib/operations.collectOperations → 회차별 행 + salesRate, startsAt 오름차순
 ```
 
-**집계가 route handler 안에 인라인으로 있다.** Admin 한 곳만 쓰는 동안은 문제가 없었지만,
-같은 수치를 다른 소비자가 필요로 하는 순간 `src/lib/`의 순수 함수로 추출해야 한다
-(`docs/AI_OPERATIONS_EXPANSION_PLAN.md` 참조).
+**집계는 `src/lib/seat-stats.ts`의 순수 함수 한 곳에 있다.** 두 라우트가 같은
+`computeSeatStats`를 쓰고, `collectOperations`는 Store를 인자로 주입받아 I/O를 모른다.
+`getSnapshot`에 넘기는 `userId`가 빈 문자열인 것은 의도된 것이다 — 운영 집계에는
+소유권 구분이 필요 없고, `mine` 판정이 응답에 실릴 여지를 애초에 없앤다.
 
 ## Store 인터페이스
 
@@ -127,7 +133,7 @@ interface ReservationStore {
 Key:   session:{sessionId}:seats
 Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
-스냅샷 조회 → HGETALL          1요청
+스냅샷 조회 → HGETALL + version GET   2요청 (ADR-004 참조)
 좌석 잡기   → Lua 스크립트      1요청 (선택 좌석 전체 성공 또는 전체 실패)
 좌석 놓기   → 소유권을 검사하는 Lua 스크립트
 ```
@@ -179,14 +185,18 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 익명 `userId`는 미들웨어의 `withUserIdCookie`가 발급하는데 **응답에만 실린다** — 같은 요청의 route handler는 아직 그 쿠키를 보지 못한다. 브라우저는 다음 요청부터 쿠키를 되돌려주므로 문제가 없지만, 쿠키를 보관하지 않고 `Authorization: Basic`만 보내는 호출자(스케줄러·`curl`)는 `getUserIdFromRequest`를 쓰는 라우트에서 매번 401을 맞는다. 기계 호출을 받을 엔드포인트는 신원 확인을 미들웨어 게이트에 맡기고 쿠키 검사를 두지 않는다 (ADR-007).
 
 ### AI 엔드포인트
-공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 입력 길이 상한(공연명 100자 등), 사용자 입력은 구분자로 감싸 프롬프트 인젝션 완화. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+
+**감싸기만으로는 부족하다.** 감싸는 값이 구분자 자체를 담고 있으면 블록이 조기에 닫히고 뒤따르는 문장이 신뢰 영역에 놓인다. 그래서 `lib/ai-prompt.ts`가 감싸기 전에 `=` 연속을 하나로 접고 개행을 접은 뒤 100자로 자른다. 구분자 리터럴을 *지우는* 방식은 `===USER_INPUT_===USER_INPUT_END===END===`처럼 겹쳐 심으면 제거 후 구분자가 되살아나므로 쓰지 않는다. 운영 요약(`/api/admin/ai-summary`)에서 특히 중요하다 — 그 프롬프트에 들어가는 공연 제목은 요약을 읽는 관리자가 아니라 **셀러가 입력한 값**이라, 여기서 뚫리면 관리자가 조작된 운영 보고를 읽는다.
 
 ### /admin·/seller
 middleware 인증. 환경변수 계정 1개, README에 심사자용 계정 명시.
 
 자격증명은 `POST /api/auth/login`이 대조하고 HTTP-only 쿠키(`SameSite=Lax`, 12시간)로 발급한다. 미들웨어는 그 쿠키를 `lib/basic-auth.ts`의 `verifyBasicAuthCookie`로 검증하며, **`WWW-Authenticate` 헤더는 보내지 않는다** — 그 헤더가 브라우저 네이티브 로그인 프롬프트를 띄우는 유일한 원인이라 자체 모달로 바꾸려면 없애야 했다. `Authorization: Basic` 헤더 검증은 남아 있어 심사자용 `curl -u`가 그대로 동작하고, 헤더를 광고하지 않으므로 프롬프트는 뜨지 않는다.
 
-미인증 응답은 두 갈래다. `/api/admin` 이하는 401 JSON, 나머지 보호 경로는 `/login`으로 **리라이트**한다(리다이렉트가 아니다). 주소창이 원래 경로로 남으므로 로그인 후 `router.refresh()` 한 번이면 같은 URL에서 실제 화면이 렌더되고, 되돌아갈 경로를 쿼리로 실어 나르지 않으니 오픈 리다이렉트 경로도 생기지 않는다.
+보호 경로는 경로만으로 정해지지 않는다. `/api/shows`는 GET이 공개 공연 목록이지만 POST는 셀러 등록이므로, `isProtectedPath(pathname, method)`가 **메서드까지 보고** 쓰기만 게이트한다. 라우트 안의 `userId` 쿠키 검사는 관문이 될 수 없다 — 미들웨어가 모든 방문자에게 익명 UUID를 발급하므로 아무도 걸러내지 못한다. 화면(`/seller/new`)만 게이트 뒤에 두고 그 화면이 부르는 API를 밖에 두면 게이트가 없는 것과 같다.
+
+미인증 응답은 두 갈래다. `/api/admin` 이하와 게이트된 쓰기 API는 401 JSON, 나머지 보호 경로는 `/login`으로 **리라이트**한다(리다이렉트가 아니다). 주소창이 원래 경로로 남으므로 로그인 후 `router.refresh()` 한 번이면 같은 URL에서 실제 화면이 렌더되고, 되돌아갈 경로를 쿼리로 실어 나르지 않으니 오픈 리다이렉트 경로도 생기지 않는다.
 
 자격증명이 비어 있으면 열리는 방향이 아니라 닫히는 방향으로 실패한다 — 쿠키 경로도 `verifyBasicAuth`에 위임하므로 이 규칙이 한 곳에만 있다.
 
