@@ -5,6 +5,7 @@ import {
   AI_MAX_TOKENS,
   AI_MODEL,
   buildOperationsSummaryPrompt,
+  selectOperationsSummaryRows,
 } from "@/lib/ai-prompt";
 import { collectOperations, type OperationsRow } from "@/lib/operations";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -40,14 +41,23 @@ async function parseRequestBody(request: Request) {
   }
 }
 
+/*
+ * AI 경로와 같은 선택 규칙을 쓴다. 여기만 상한이 없으면 키가 없는 환경에서
+ * 전 회차가 그대로 쏟아지고, 두 경로가 서로 다른 회차를 말하게 된다.
+ */
 function buildFallbackSummary(rows: OperationsRow[]): string {
   if (rows.length === 0) {
     return "현재 조회 조건에 해당하는 회차가 없습니다.";
   }
 
+  const { rows: selectedRows, omittedCount } =
+    selectOperationsSummaryRows(rows);
+
   return [
-    `조회된 운영 현황은 ${rows.length}개 회차입니다.`,
-    ...rows.map(
+    omittedCount > 0
+      ? `조회된 운영 현황은 ${rows.length}개 회차이며, 판매율이 높은 ${selectedRows.length}개만 아래에 싣습니다.`
+      : `조회된 운영 현황은 ${rows.length}개 회차입니다.`,
+    ...selectedRows.map(
       (row) =>
         `${row.showTitle} (${row.startsAt}) 회차는 전체 ${row.total}석, ` +
         `예매 가능 ${row.available}석, 홀드 ${row.held}석, ` +

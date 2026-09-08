@@ -6,6 +6,7 @@ import {
   OPERATIONS_SUMMARY_ROW_LIMIT,
   buildDescriptionPrompt,
   buildOperationsSummaryPrompt,
+  selectOperationsSummaryRows,
 } from "./ai-prompt";
 
 function makeOperationsRow(
@@ -179,5 +180,85 @@ describe("사용자 입력 구분자 중화", () => {
 
     expect(prompt.match(/===USER_INPUT_START===/g)).toHaveLength(1);
     expect(prompt.match(/===USER_INPUT_END===/g)).toHaveLength(1);
+  });
+});
+
+/** 판매율이 index와 같은 행 N개. 낮은 행이 잘려 나가는지 보기 위한 픽스처다. */
+function makeRankedRows(count: number): OperationsRow[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeOperationsRow({
+      sessionId: `session-${index}`,
+      showTitle: `공연-${String(index).padStart(3, "0")}-끝`,
+      salesRate: index,
+    }),
+  );
+}
+
+describe("selectOperationsSummaryRows", () => {
+  it("상한 이하면 전부 그대로 둔다", () => {
+    const selected = selectOperationsSummaryRows([
+      makeOperationsRow({ sessionId: "session-a", salesRate: 10 }),
+      makeOperationsRow({ sessionId: "session-b", salesRate: 90 }),
+    ]);
+
+    expect(selected.rows.map((row) => row.sessionId)).toEqual([
+      "session-a",
+      "session-b",
+    ]);
+    expect(selected.omittedCount).toBe(0);
+  });
+
+  it("상한을 넘으면 판매율 상위만 남기고 뺀 수를 센다", () => {
+    const selected = selectOperationsSummaryRows(
+      makeRankedRows(OPERATIONS_SUMMARY_ROW_LIMIT + 3),
+    );
+    const sessionIds = selected.rows.map((row) => row.sessionId);
+
+    expect(selected.rows).toHaveLength(OPERATIONS_SUMMARY_ROW_LIMIT);
+    expect(selected.omittedCount).toBe(3);
+    expect(sessionIds).not.toContain("session-0");
+    expect(sessionIds).not.toContain("session-2");
+    expect(sessionIds).toContain(
+      `session-${OPERATIONS_SUMMARY_ROW_LIMIT + 2}`,
+    );
+  });
+
+  /* 요약 아래 붙는 운영 표가 startsAt 오름차순이라 산문도 같은 순서여야 한다 */
+  it("고르는 기준은 판매율이지만 순서는 입력 순서를 지킨다", () => {
+    const selected = selectOperationsSummaryRows(
+      makeRankedRows(OPERATIONS_SUMMARY_ROW_LIMIT + 3),
+    );
+    const rates = selected.rows.map((row) => row.salesRate);
+
+    expect(rates).toEqual([...rates].sort((left, right) => left - right));
+    expect(rates[0]).toBe(3);
+  });
+
+  it("입력 배열을 정렬로 변형하지 않는다", () => {
+    const rows = makeRankedRows(OPERATIONS_SUMMARY_ROW_LIMIT + 1);
+
+    selectOperationsSummaryRows(rows);
+
+    expect(rows[0]?.sessionId).toBe("session-0");
+  });
+});
+
+describe("buildOperationsSummaryPrompt 절단 고지", () => {
+  it("상한을 넘으면 잘렸다는 사실을 모델에게 알린다", () => {
+    const prompt = buildOperationsSummaryPrompt(
+      makeRankedRows(OPERATIONS_SUMMARY_ROW_LIMIT + 5),
+    );
+
+    expect(prompt).toContain(
+      `전체 ${OPERATIONS_SUMMARY_ROW_LIMIT + 5}개 회차 중 판매율 상위 ${OPERATIONS_SUMMARY_ROW_LIMIT}개`,
+    );
+    expect(prompt).toContain("요약에 이 사실을 밝혀라");
+  });
+
+  it("상한 이하면 절단 고지를 넣지 않는다", () => {
+    const prompt = buildOperationsSummaryPrompt(makeRankedRows(2));
+
+    expect(prompt).not.toContain("판매율 상위");
+    expect(prompt).not.toContain("요약에 이 사실을 밝혀라");
   });
 });

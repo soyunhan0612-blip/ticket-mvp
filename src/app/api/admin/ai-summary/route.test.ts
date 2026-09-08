@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { OPERATIONS_SUMMARY_ROW_LIMIT } from "@/lib/ai-prompt";
 import { getSeatStore, getShowStore } from "@/services";
 
 import { POST } from "./route";
@@ -93,6 +94,30 @@ describe("POST /api/admin/ai-summary", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  /*
+   * 시드만으로 회차가 24개라 필터 없는 호출은 이미 상한을 넘는다. 상한이 없으면
+   * 폴백 응답만 회차 수에 비례해 길어진다.
+   */
+  it("caps the fallback rows and says the list was truncated", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const response = await POST(
+      makeRequest({}, `fallback-cap-${crypto.randomUUID()}`),
+    );
+    const summary = await response.text();
+    const total = /조회된 운영 현황은 (\d+)개 회차이며/.exec(summary);
+
+    expect(response.status).toBe(200);
+    expect(total).not.toBeNull();
+    expect(Number(total?.[1])).toBeGreaterThan(OPERATIONS_SUMMARY_ROW_LIMIT);
+    expect(summary).toContain(
+      `판매율이 높은 ${OPERATIONS_SUMMARY_ROW_LIMIT}개만`,
+    );
+    expect(summary.match(/회차는 전체 /g)).toHaveLength(
+      OPERATIONS_SUMMARY_ROW_LIMIT,
+    );
   });
 
   it("returns 429 with Retry-After on the fourth request from one IP", async () => {
