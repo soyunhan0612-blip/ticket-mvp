@@ -2,10 +2,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { JSX } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  ErrorNotice,
+  UnauthorizedNotice,
+} from "@/components/admin/admin-query";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { UnauthorizedError } from "@/lib/api-error";
 import type { OperationsRow } from "@/lib/operations";
 
 interface OperationsPanelProps {
@@ -17,47 +22,10 @@ interface OperationsResponse {
   sessions: OperationsRow[];
 }
 
-class UnauthorizedError extends Error {
-  constructor() {
-    super("로그인이 만료되었습니다.");
-    this.name = "UnauthorizedError";
-  }
-}
-
 function formatSessionTime(startsAt: string): string {
   return new Date(startsAt).toLocaleString("ko-KR", {
     timeZone: "Asia/Seoul",
   });
-}
-
-function UnauthorizedNotice(): JSX.Element {
-  return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-md rounded-card bg-primary px-lg py-md text-body-sm text-on-primary"
-      role="alert"
-    >
-      <p>로그인이 만료되었습니다. 다시 로그인해 주세요.</p>
-      <Button
-        className="!border-on-primary !text-on-primary hover:!bg-on-primary hover:!text-primary"
-        onClick={() => window.location.reload()}
-        size="sm"
-        variant="outline-on-dark"
-      >
-        다시 로그인
-      </Button>
-    </div>
-  );
-}
-
-function ErrorNotice({ children }: { children: string }): JSX.Element {
-  return (
-    <p
-      className="rounded-card bg-primary px-lg py-md text-body-sm text-on-primary"
-      role="alert"
-    >
-      {children}
-    </p>
-  );
 }
 
 export function OperationsPanel({
@@ -66,6 +34,7 @@ export function OperationsPanel({
   const [summary, setSummary] = useState("");
   const [summaryError, setSummaryError] = useState<Error | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const summaryAbortRef = useRef<AbortController | null>(null);
 
   const operationsQuery = useQuery<OperationsResponse>({
     queryKey: ["admin-operations", showId],
@@ -89,9 +58,18 @@ export function OperationsPanel({
   useEffect(() => {
     setSummary("");
     setSummaryError(null);
+
+    /*
+     * 필터가 바뀌면 진행 중인 스트림을 끊는다. 끊지 않으면 이전 공연의 조각이
+     * 계속 도착해, 새 필터의 표 옆에 다른 조건으로 만든 요약이 쌓인다.
+     */
+    return () => summaryAbortRef.current?.abort();
   }, [showId]);
 
   const generateSummary = useCallback(async () => {
+    const abortController = new AbortController();
+    summaryAbortRef.current = abortController;
+
     setIsSummarizing(true);
     setSummary("");
     setSummaryError(null);
@@ -101,6 +79,7 @@ export function OperationsPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(showId === "" ? {} : { showId }),
+        signal: abortController.signal,
       });
 
       if (response.status === 401) throw new UnauthorizedError();
@@ -118,10 +97,14 @@ export function OperationsPanel({
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        // 끊긴 뒤 도착한 조각은 이전 필터의 것이다. 화면에 올리지 않는다.
+        if (abortController.signal.aborted) return;
         const chunk = decoder.decode(value, { stream: true });
         received += chunk;
         setSummary((current) => current + chunk);
       }
+
+      if (abortController.signal.aborted) return;
 
       const finalChunk = decoder.decode();
       received += finalChunk;
@@ -131,6 +114,9 @@ export function OperationsPanel({
         throw new Error("운영 요약을 생성하지 못했습니다.");
       }
     } catch (error) {
+      // 사용자가 필터를 바꿔 끊은 것은 실패가 아니다.
+      if (abortController.signal.aborted) return;
+
       setSummary("");
       setSummaryError(
         error instanceof Error
@@ -138,6 +124,9 @@ export function OperationsPanel({
           : new Error("운영 요약을 생성하지 못했습니다."),
       );
     } finally {
+      if (summaryAbortRef.current === abortController) {
+        summaryAbortRef.current = null;
+      }
       setIsSummarizing(false);
     }
   }, [showId]);

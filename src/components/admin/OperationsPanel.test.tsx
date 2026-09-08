@@ -167,4 +167,55 @@ describe("OperationsPanel", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();
   });
+
+  it("요약 도중 공연이 바뀌면 이전 필터의 조각을 쌓지 않는다", async () => {
+    let releaseLateChunk!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseLateChunk = resolve;
+    });
+    const encoder = new TextEncoder();
+    const gatedStream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(encoder.encode("이전 필터의 조각. "));
+        await gate;
+        controller.enqueue(encoder.encode("늦게-도착한-조각"));
+        controller.close();
+      },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) =>
+      Promise.resolve(
+        String(input).includes("ai-summary")
+          ? new Response(gatedStream)
+          : Response.json(OPERATIONS_RESPONSE),
+      ),
+    );
+    const user = userEvent.setup();
+    const queryClient = createQueryClient();
+
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <OperationsPanel showId="" />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("첫 번째 공연");
+    await user.click(screen.getByRole("button", { name: "운영 현황 요약" }));
+    await screen.findByText("이전 필터의 조각.");
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <OperationsPanel showId="show-1" />
+      </QueryClientProvider>,
+    );
+    releaseLateChunk();
+
+    /* 요약이 끝나야(버튼이 다시 활성화돼야) 늦은 조각의 도착 여부를 판정할 수 있다 */
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "운영 현황 요약" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.queryByText(/늦게-도착한-조각/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/이전 필터의 조각/)).not.toBeInTheDocument();
+  });
 });
