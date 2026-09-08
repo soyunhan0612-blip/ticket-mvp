@@ -55,7 +55,7 @@ Agent Tool은 **집계 함수를 호출하고, Store를 직접 호출하지 않�
 
 ### 엔드포인트 배치
 
-운영 데이터를 다루는 모든 엔드포인트는 `/api/admin/**` 아래에 둔다. 미들웨어의 `isProtectedApiPath`가 게이트하는 것은 `/api/admin`뿐이고, 기존 `/api/ai/description`은 그 바깥이라 **무인증 공개**다(레이트리밋만 있다). 그 배치를 복제하면 매출·재고가 그대로 공개된다.
+운영 데이터를 다루는 모든 엔드포인트는 `/api/admin/**` 아래에 둔다. 미들웨어의 `isProtectedApiPath`가 게이트하는 것은 `/api/admin` 이하와 `/api/shows`의 쓰기 메서드뿐이고, 기존 `/api/ai/description`은 그 바깥이라 **무인증 공개**다(레이트리밋만 있다). 그 배치를 복제하면 매출·재고가 그대로 공개된다.
 
 ### `userId` 쿠키를 요구하지 않는다
 

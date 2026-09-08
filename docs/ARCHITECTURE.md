@@ -185,7 +185,9 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 익명 `userId`는 미들웨어의 `withUserIdCookie`가 발급하는데 **응답에만 실린다** — 같은 요청의 route handler는 아직 그 쿠키를 보지 못한다. 브라우저는 다음 요청부터 쿠키를 되돌려주므로 문제가 없지만, 쿠키를 보관하지 않고 `Authorization: Basic`만 보내는 호출자(스케줄러·`curl`)는 `getUserIdFromRequest`를 쓰는 라우트에서 매번 401을 맞는다. 기계 호출을 받을 엔드포인트는 신원 확인을 미들웨어 게이트에 맡기고 쿠키 검사를 두지 않는다 (ADR-007).
 
 ### AI 엔드포인트
-공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+둘의 노출도가 다르다. `/api/ai/description`은 게이트 밖이라 **무인증 공개**이고, `/api/admin/ai-summary`는 `/api/admin` 이하라 미들웨어 게이트 뒤에 있다. 새 AI 라우트를 만들 때 기본은 후자다 — 운영 데이터를 다루면서 전자의 배치를 복제하면 매출·재고가 그대로 공개된다.
+
+두 라우트에 공통으로 거는 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 
 **감싸기만으로는 부족하다.** 감싸는 값이 구분자 자체를 담고 있으면 블록이 조기에 닫히고 뒤따르는 문장이 신뢰 영역에 놓인다. 그래서 `lib/ai-prompt.ts`가 감싸기 전에 `=` 연속을 하나로 접고 개행을 접은 뒤 100자로 자른다. 구분자 리터럴을 *지우는* 방식은 `===USER_INPUT_===USER_INPUT_END===END===`처럼 겹쳐 심으면 제거 후 구분자가 되살아나므로 쓰지 않는다. 운영 요약(`/api/admin/ai-summary`)에서 특히 중요하다 — 그 프롬프트에 들어가는 공연 제목은 요약을 읽는 관리자가 아니라 **셀러가 입력한 값**이라, 여기서 뚫리면 관리자가 조작된 운영 보고를 읽는다.
 
