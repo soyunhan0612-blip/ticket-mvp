@@ -256,7 +256,7 @@ DS는 그림자를 쓰지 않는다. **깊이는 표면 극성 반전(dark ↔ l
 ### 설명 렌더
 
 - **plain text + `whitespace-pre-wrap`** 만 사용
-- `dangerouslySetInnerHTML` **금지** — 셀러 등록은 누구나 하므로 저장형 XSS의 실제 경로
+- `dangerouslySetInnerHTML` **금지** — 공연 제목·설명은 셀러가 입력한 값이 그대로 저장돼 여러 화면에서 다시 렌더되므로 저장형 XSS의 실제 경로다. 등록이 Basic 게이트 뒤에 있다는 것은 완화이지 방어가 아니다(자격증명은 `/admin`과 공유하는 하나뿐이다)
 - AI에게도 마크다운 없이 문단만 쓰도록 프롬프트에서 지시
 
 ### Admin
