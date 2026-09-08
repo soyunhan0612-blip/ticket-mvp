@@ -1,0 +1,21 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "13-ops-agent",
+  "steps": [
+    {
+      "step": 0,
+      "name": "agent-tools",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "ops-agent-api",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "admin-agent-panel",
+      "status": "pending"
+    }
+  ]
+}
