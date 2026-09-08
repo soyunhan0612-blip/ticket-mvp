@@ -39,6 +39,10 @@ function mockShowEndpoints(show: Record<string, unknown>) {
       return Promise.resolve(Response.json({ shows: [show] }));
     }
 
+    if (url.startsWith("/api/admin/operations")) {
+      return Promise.resolve(Response.json({ sessions: [] }));
+    }
+
     return Promise.resolve(
       Response.json({
         show,
