@@ -12,8 +12,11 @@ import {
 } from "@/lib/ops-agent-tools";
 import { getSeatStore, getShowStore } from "@/services";
 
-// Step 1에서 Agent route를 추가하면 그 파일 경로도 이 배열에 추가한다.
-const AGENT_MODULE_PATHS = ["src/lib/ops-agent-tools.ts"] as const;
+const AGENT_MODULE_PATHS = [
+  "src/lib/ops-agent-tools.ts",
+  "src/lib/ops-agent.ts",
+  "src/app/api/admin/agent/route.ts",
+] as const;
 
 const FORBIDDEN_WRITE_IDENTIFIERS = [
   "hold",

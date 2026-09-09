@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "ops-agent-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-09T14:17:17+0900",
+      "summary": "POST /api/admin/agent가 { question, showId?, date? }를 받아 조회 전용 Tool Agent 답변을 text/plain; charset=utf-8 ReadableStream으로 반환하고, 키가 없으면 200 서버 집계 폴백을 스트리밍",
+      "completed_at": "2026-09-09T14:25:52+0900"
     },
     {
       "step": 2,
