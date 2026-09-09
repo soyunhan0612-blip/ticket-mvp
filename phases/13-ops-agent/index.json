@@ -5,7 +5,10 @@
     {
       "step": 0,
       "name": "agent-tools",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-09T11:57:54+0900",
+      "summary": "src/lib/ops-agent-tools.ts에 list_shows({})·list_operations({ showId?, date? }) 조회 Tool을 추가하고 OPS_TOOL_ROW_LIMIT로 결과 행을 제한",
+      "completed_at": "2026-09-09T12:11:29+0900"
     },
     {
       "step": 1,
@@ -17,5 +20,6 @@
       "name": "admin-agent-panel",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-09-09T11:57:54+0900"
 }
