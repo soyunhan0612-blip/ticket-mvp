@@ -10,6 +10,7 @@ import {
   buildOpsAgentFallback,
   buildOpsAgentSystemPrompt,
   buildOpsAgentUserMessage,
+  finalizeOpsAgentAnswer,
 } from "@/lib/ops-agent";
 import { createOpsTools } from "@/lib/ops-agent-tools";
 import { collectOperations } from "@/lib/operations";
@@ -31,9 +32,6 @@ const responseHeaders = {
   "Content-Type": "text/plain; charset=utf-8",
   "Cache-Control": "no-cache",
 };
-
-const EMPTY_AGENT_ANSWER =
-  "요청을 처리했지만 답변 텍스트를 생성하지 못했습니다.";
 
 type AgentRequest = z.infer<typeof requestBodySchema>;
 
@@ -93,7 +91,7 @@ function createAgentStream(
           .join("");
 
         controller.enqueue(
-          encoder.encode(answer.trim().length > 0 ? answer : EMPTY_AGENT_ANSWER),
+          encoder.encode(finalizeOpsAgentAnswer(answer, message.stop_reason)),
         );
         controller.close();
       } catch (error) {

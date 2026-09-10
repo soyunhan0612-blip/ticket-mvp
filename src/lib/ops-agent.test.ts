@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { AI_MODEL, OPERATIONS_SUMMARY_ROW_LIMIT } from "@/lib/ai-prompt";
+import {
+  AI_MAX_TOKENS,
+  AI_MODEL,
+  OPERATIONS_SUMMARY_ROW_LIMIT,
+} from "@/lib/ai-prompt";
 import {
   AGENT_MAX_ITERATIONS,
   AGENT_MAX_TOKENS,
@@ -9,6 +13,7 @@ import {
   buildOpsAgentFallback,
   buildOpsAgentSystemPrompt,
   buildOpsAgentUserMessage,
+  finalizeOpsAgentAnswer,
 } from "@/lib/ops-agent";
 import type { OperationsRow } from "@/lib/operations";
 
@@ -109,5 +114,38 @@ describe("buildOpsAgentUserMessage", () => {
 
     expect(message.match(/===USER_INPUT_START===/g)).toHaveLength(1);
     expect(message.match(/===USER_INPUT_END===/g)).toHaveLength(1);
+  });
+});
+
+describe("finalizeOpsAgentAnswer", () => {
+  it("정상 종료면 답변을 그대로 돌려준다", () => {
+    expect(finalizeOpsAgentAnswer("판매율은 0.8%입니다.", "end_turn")).toBe(
+      "판매율은 0.8%입니다.",
+    );
+  });
+
+  /*
+   * 실측에서 나온 결함이다. Tool 추론까지 서술하는 Agent 답변은 요약보다 길어
+   * 상한에 닿고, 그때 문장 중간에서 끊긴다. 라우트가 stop_reason을 보지 않으면
+   * 사용자는 답이 끝난 줄 안다 - 잘린 답을 온전한 답으로 읽는 쪽이 더 위험하다.
+   */
+  it("상한에 걸려 끊겼으면 그 사실을 덧붙인다", () => {
+    const finalized = finalizeOpsAgentAnswer("판매율은", "max_tokens");
+
+    expect(finalized).toContain("판매율은");
+    expect(finalized).not.toBe("판매율은");
+    expect(finalized).toMatch(/잘렸|끊/);
+  });
+
+  it("텍스트 블록이 없으면 안내 문장을 돌려준다", () => {
+    expect(finalizeOpsAgentAnswer("   ", "end_turn")).toMatch(/생성하지 못했/);
+  });
+
+  it("빈 답변이 상한에 걸린 경우에도 안내 문장이 먼저다", () => {
+    expect(finalizeOpsAgentAnswer("", "max_tokens")).toMatch(/생성하지 못했/);
+  });
+
+  it("Agent 상한은 요약 상한보다 크다", () => {
+    expect(AGENT_MAX_TOKENS).toBeGreaterThan(AI_MAX_TOKENS);
   });
 });
