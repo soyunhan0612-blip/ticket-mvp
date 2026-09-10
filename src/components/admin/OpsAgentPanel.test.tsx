@@ -2,6 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { OPS_AGENT_ERROR } from "@/components/admin/admin-query";
+
 import { OpsAgentPanel } from "./OpsAgentPanel";
 
 function createStreamingResponse(chunks: string[]): Response {
@@ -103,7 +105,7 @@ describe("OpsAgentPanel", () => {
     await submitQuestion("운영 현황을 알려줘");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "운영 요약을 생성하지 못했습니다.",
+      OPS_AGENT_ERROR,
     );
   });
 

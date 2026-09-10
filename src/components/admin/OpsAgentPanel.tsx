@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ErrorNotice,
+  OPS_AGENT_ERROR,
   UnauthorizedNotice,
 } from "@/components/admin/admin-query";
 import { Button } from "@/components/ui/Button";
@@ -14,13 +15,12 @@ import {
   FIELD_LABEL_CLASS_NAMES,
 } from "@/components/ui/TextInput";
 import { UnauthorizedError } from "@/lib/api-error";
+import { AGENT_QUESTION_LIMIT } from "@/lib/ops-agent";
 
 interface OpsAgentPanelProps {
   /** 빈 문자열이면 전체 공연 */
   showId: string;
 }
-
-const OPERATIONS_GENERATION_ERROR = "운영 요약을 생성하지 못했습니다.";
 
 export function OpsAgentPanel({ showId }: OpsAgentPanelProps): JSX.Element {
   const [question, setQuestion] = useState("");
@@ -61,7 +61,7 @@ export function OpsAgentPanel({ showId }: OpsAgentPanelProps): JSX.Element {
 
       if (response.status === 401) throw new UnauthorizedError();
       if (!response.ok || !response.body) {
-        throw new Error(OPERATIONS_GENERATION_ERROR);
+        throw new Error(OPS_AGENT_ERROR);
       }
 
       const reader = response.body.getReader();
@@ -85,7 +85,7 @@ export function OpsAgentPanel({ showId }: OpsAgentPanelProps): JSX.Element {
       setAnswer((current) => current + finalChunk);
 
       if (received.length === 0) {
-        throw new Error(OPERATIONS_GENERATION_ERROR);
+        throw new Error(OPS_AGENT_ERROR);
       }
     } catch (error) {
       // 사용자가 필터를 바꿔 끊은 것은 실패가 아니다.
@@ -95,7 +95,7 @@ export function OpsAgentPanel({ showId }: OpsAgentPanelProps): JSX.Element {
       setAnswerError(
         error instanceof Error
           ? error
-          : new Error(OPERATIONS_GENERATION_ERROR),
+          : new Error(OPS_AGENT_ERROR),
       );
     } finally {
       if (answerAbortRef.current === abortController) {
@@ -134,10 +134,19 @@ export function OpsAgentPanel({ showId }: OpsAgentPanelProps): JSX.Element {
             <textarea
               className={FIELD_CLASS_NAMES}
               id="ops-agent-question"
+              maxLength={AGENT_QUESTION_LIMIT}
               onChange={(event) => setQuestion(event.target.value)}
               rows={3}
               value={question}
             />
+            {/*
+              * 상한을 넘긴 요청도 라우트가 바디를 읽기 전에 레이트리밋
+              * 슬롯을 먹는다. 400을 받아 원인 불명의 실패를 보느니
+              * 입력 단계에서 막고 남은 글자 수를 보여준다.
+              */}
+            <p className="text-body-sm text-mute">
+              {question.length} / {AGENT_QUESTION_LIMIT}자
+            </p>
           </div>
 
           <Button
