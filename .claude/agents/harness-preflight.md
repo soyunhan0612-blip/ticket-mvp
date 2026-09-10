@@ -58,8 +58,9 @@ python --version
 
 ## 점검 3 — 가드레일과 코드가 모순되지 않는가
 
-`execute.py`의 `_load_guardrails()`는 **`AGENTS.md`와 `docs/*.md` 전문**을 매 step 프롬프트에
-싣는다 (`CLAUDE.md`는 실리지 않는다). 그 문서가 현재 코드와 모순되면 Codex는 그것을
+`execute.py`의 `_load_guardrails()`는 **`AGENTS.md`와 `docs/*.md`**를 매 step 프롬프트에
+싣는다 — `CLAUDE.md`는 실리지 않고, `GUARDRAIL_DOC_EXCLUDE`에 든 문서도 빠진다.
+**실제로 무엇이 실리는지는 그 상수를 읽어 확인하라.** 실린 문서가 현재 코드와 모순되면 Codex는 그것을
 "설계 모순"으로 읽고 `blocked`를 낼 수 있다 — 많은 명세가 "모호하거나 모순되면 추측하지 말고
 blocked로 표시하라"고 지시하기 때문이다.
 

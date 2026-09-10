@@ -56,7 +56,8 @@ description: Harness phase/step 명세를 설계하고 phases/ 아래 파일을 
 
 ### CRITICAL 규칙을 명세에 옮겨 적는다
 
-`CLAUDE.md`는 `execute.py`의 가드레일에 **실리지 않는다**(`AGENTS.md`와 `docs/*.md`만 실린다).
+`CLAUDE.md`는 `execute.py`의 가드레일에 **실리지 않는다**(`AGENTS.md`와 `docs/*.md`만 실리고,
+그중 `GUARDRAIL_DOC_EXCLUDE`에 든 것은 빠진다).
 따라서 그 step에 해당하는 CRITICAL 규칙은 명세 본문에 직접 적어야 한다.
 
 라우트를 건드리는 step이면 최소한 이 셋: `userId`는 쿠키에서만

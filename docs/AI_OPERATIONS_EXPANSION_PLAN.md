@@ -51,7 +51,7 @@ Agent Tool은 **집계를 스스로 하지 않는다.** 주입받은 읽기 Stor
 
 ## 보안 규약
 
-`scripts/execute.py`의 가드레일은 `AGENTS.md`와 `docs/*.md`만 싣는다. `CLAUDE.md`는 실리지 않으므로, AI 확장에 관한 경계는 **여기가 유일한 전달 경로**다.
+`scripts/execute.py`의 가드레일은 `AGENTS.md`와 `docs/*.md`만 싣는다(`GUARDRAIL_DOC_EXCLUDE` 제외). `CLAUDE.md`는 실리지 않으므로, AI 확장에 관한 경계는 **여기가 유일한 전달 경로**다.
 
 ### 엔드포인트 배치
 
@@ -144,4 +144,4 @@ n8n은 저장소 밖 인프라다. **워크플로 JSON export와 재현 절차�
 
 미래 계획을 이미 구현된 구조처럼 쓰지 않는다. 문서가 수정되는 것은 정상이고, 중요한 것은 현재 코드와 현재 아키텍처 문서가 서로 맞는 상태를 유지하는 것이다.
 
-**이 문서에 실행 로그나 체크리스트를 쌓지 않는다.** `docs/*.md`는 `scripts/execute.py`가 매 step 프롬프트에 전문을 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다. 진행 상태의 단일 출처는 `phases/*/index.json`이다.
+**이 문서에 실행 로그나 체크리스트를 쌓지 않는다.** 이 문서는 `scripts/execute.py`가 매 step 프롬프트에 전문을 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다. 진행 상태의 단일 출처는 `phases/*/index.json`이다.
