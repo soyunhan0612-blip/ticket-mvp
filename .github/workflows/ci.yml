@@ -23,4 +23,11 @@ jobs:
       - run: pnpm run test
       # 훅 스크립트는 vitest가 수집하지 않는다(include는 src/**). 여기서만 검증된다.
       - run: pnpm run test:hooks
+      # execute.py는 이 프로젝트의 핵심 도구인데 vitest는 파이썬을 수집하지 않는다.
+      # 이 스텝이 없어 660줄짜리 스위트가 Windows에서 38건 에러로 깨져 있던 것을 오래 몰랐다.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest~=9.1
+      - run: python -m pytest scripts/test_execute.py -q
       - run: pnpm run build

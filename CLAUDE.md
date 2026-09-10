@@ -37,6 +37,7 @@
 - 훅은 위험 명령 차단(`codex-block-dangerous.cjs`), TDD 가드(`codex-tdd-guard.cjs`), Stop 검증 게이트(Codex: `codex-verify-gate.cjs` / Claude: `claude-verify-gate.cjs` — 종료 코드 규약만 다르고 검사 로직은 동일)로 분리한다. Windows와 Unix에서 동일하게 동작하도록 Node로 구현한다.
 - `package.json`이 생기기 전에는 TDD와 Stop 검증을 건너뛴다. 스캐폴딩 이후 Stop 훅은 `npm run lint`와 `npm run test`만 실행하며, `npm run build`는 배포 또는 라우팅·설정 변경 시 명시적으로 실행한다.
 - Codex에서는 저장소 훅을 최초 1회 review & trust 해야 한다.
+- `scripts/execute.py`의 테스트는 `python -m pytest scripts/test_execute.py`로 돈다. vitest도 `pnpm test:hooks`도 이것을 수집하지 않으므로 CI에 별도 스텝이 있다.
 - 훅 스크립트의 테스트는 `pnpm test:hooks`로 돈다. vitest의 `include`가 `src/**`뿐이라 `pnpm test`는 이것을 수집하지 않는다. CI에서 별도 스텝으로 실행하며, Stop 훅에는 넣지 않는다 (매 정지마다 도는 비용이 이득보다 크다).
 
 ## 에이전트 자산 (Claude Code 전용)
@@ -65,6 +66,7 @@ pnpm build    # 프로덕션 빌드 (배포 직전 수동)
 pnpm lint     # ESLint
 pnpm test     # 테스트 (Stop 훅에서 자동)
 pnpm test:hooks  # 훅 스크립트 테스트 (CI에서 별도 스텝)
+python -m pytest scripts/test_execute.py   # 하네스 테스트 (CI에서 별도 스텝)
 ```
 
 패키지 매니저는 pnpm으로 고정한다 (`package.json`의 `packageManager`). Stop 훅 스크립트는 `npm run lint`/`npm run test`를 그대로 호출하는데, pnpm이 만든 `node_modules/.bin`에서도 동일하게 동작하므로 훅은 바꾸지 않는다.
