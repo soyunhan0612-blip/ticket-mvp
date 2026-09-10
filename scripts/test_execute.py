@@ -29,12 +29,12 @@ def tmp_project(tmp_path):
     phases_dir.mkdir()
 
     claude_md = tmp_path / "CLAUDE.md"
-    claude_md.write_text("# Rules\n- rule one\n- rule two")
+    claude_md.write_text("# Rules\n- rule one\n- rule two", encoding="utf-8")
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
-    (docs_dir / "arch.md").write_text("# Architecture\nSome content")
-    (docs_dir / "guide.md").write_text("# Guide\nAnother doc")
+    (docs_dir / "arch.md").write_text("# Architecture\nSome content", encoding="utf-8")
+    (docs_dir / "guide.md").write_text("# Guide\nAnother doc", encoding="utf-8")
 
     return tmp_path
 
@@ -54,8 +54,8 @@ def phase_dir(tmp_project):
             {"step": 2, "name": "ui", "status": "pending"},
         ],
     }
-    (d / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False))
-    (d / "step2.md").write_text("# Step 2: UI\n\nUI를 구현하세요.")
+    (d / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8")
+    (d / "step2.md").write_text("# Step 2: UI\n\nUI를 구현하세요.", encoding="utf-8")
 
     return d
 
@@ -70,7 +70,7 @@ def top_index(tmp_project):
         ]
     }
     p = tmp_project / "phases" / "index.json"
-    p.write_text(json.dumps(top, indent=2))
+    p.write_text(json.dumps(top, indent=2), encoding="utf-8")
     return p
 
 
@@ -126,14 +126,14 @@ class TestJsonHelpers:
     def test_save_ensures_ascii_false(self, tmp_path):
         p = tmp_path / "test.json"
         ex.StepExecutor._write_json(p, {"한글": "테스트"})
-        raw = p.read_text()
+        raw = p.read_text(encoding="utf-8")
         assert "한글" in raw
         assert "\\u" not in raw
 
     def test_save_indented(self, tmp_path):
         p = tmp_path / "test.json"
         ex.StepExecutor._write_json(p, {"a": 1})
-        raw = p.read_text()
+        raw = p.read_text(encoding="utf-8")
         assert "\n" in raw
 
     def test_load_nonexistent_raises(self, tmp_path):
@@ -155,7 +155,7 @@ class TestLoadGuardrails:
         assert "# Guide" in result
 
     def test_prefers_agents_md_over_claude_md(self, executor, tmp_project):
-        (tmp_project / "AGENTS.md").write_text("# Agents\n- agent rule")
+        (tmp_project / "AGENTS.md").write_text("# Agents\n- agent rule", encoding="utf-8")
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
         assert "agent rule" in result
@@ -188,13 +188,40 @@ class TestLoadGuardrails:
         assert "Rules" in result
         assert "Architecture" not in result
 
+    """
+    가드레일은 구현 지침만 싣는다. 과거형 저널과 측정 절차는 Codex에게 값어치가
+    없을 뿐 아니라, 낡은 상태 서술이 "설계 모순"으로 읽혀 blocked를 부를 수 있다.
+    """
+
+    def test_excludes_non_guidance_docs(self, executor, tmp_project):
+        docs = tmp_project / "docs"
+        (docs / "PROGRESS.md").write_text("# Progress - Day 9 journal entry", encoding="utf-8")
+        (docs / "PERF_MEASUREMENT.md").write_text("# Perf - manual steps", encoding="utf-8")
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        assert "Day 9 journal entry" not in result
+        assert "manual steps" not in result
+
+    def test_keeps_docs_not_in_exclude_list(self, executor, tmp_project):
+        (tmp_project / "docs" / "PROGRESS.md").write_text("# Progress - journal", encoding="utf-8")
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        assert "Some content" in result
+        assert "Another doc" in result
+
+    def test_exclude_matches_filename_not_substring(self, executor, tmp_project):
+        (tmp_project / "docs" / "PROGRESS_NOTES.md").write_text("# Notes - keep me", encoding="utf-8")
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        assert "keep me" in result
+
     def test_empty_project(self, tmp_path):
         with patch.object(ex, "ROOT", tmp_path):
             # executor가 필요 없는 static-like 동작이므로 임시 인스턴스
             phases_dir = tmp_path / "phases" / "dummy"
             phases_dir.mkdir(parents=True)
             idx = {"project": "T", "phase": "t", "steps": []}
-            (phases_dir / "index.json").write_text(json.dumps(idx))
+            (phases_dir / "index.json").write_text(json.dumps(idx), encoding="utf-8")
             inst = ex.StepExecutor.__new__(ex.StepExecutor)
             result = inst._load_guardrails()
         assert result == ""
@@ -206,18 +233,18 @@ class TestLoadGuardrails:
 
 class TestBuildStepContext:
     def test_includes_completed_with_summary(self, phase_dir):
-        index = json.loads((phase_dir / "index.json").read_text())
+        index = json.loads((phase_dir / "index.json").read_text(encoding="utf-8"))
         result = ex.StepExecutor._build_step_context(index)
         assert "Step 0 (setup): 프로젝트 초기화 완료" in result
         assert "Step 1 (core): 핵심 로직 구현" in result
 
     def test_excludes_pending(self, phase_dir):
-        index = json.loads((phase_dir / "index.json").read_text())
+        index = json.loads((phase_dir / "index.json").read_text(encoding="utf-8"))
         result = ex.StepExecutor._build_step_context(index)
         assert "ui" not in result
 
     def test_excludes_completed_without_summary(self, phase_dir):
-        index = json.loads((phase_dir / "index.json").read_text())
+        index = json.loads((phase_dir / "index.json").read_text(encoding="utf-8"))
         del index["steps"][0]["summary"]
         result = ex.StepExecutor._build_step_context(index)
         assert "setup" not in result
@@ -229,7 +256,7 @@ class TestBuildStepContext:
         assert result == ""
 
     def test_has_header(self, phase_dir):
-        index = json.loads((phase_dir / "index.json").read_text())
+        index = json.loads((phase_dir / "index.json").read_text(encoding="utf-8"))
         result = ex.StepExecutor._build_step_context(index)
         assert result.startswith("## 이전 Step 산출물")
 
@@ -287,7 +314,7 @@ class TestUpdateTopIndex:
     def test_completed(self, executor, top_index):
         executor._top_index_file = top_index
         executor._update_top_index("completed")
-        data = json.loads(top_index.read_text())
+        data = json.loads(top_index.read_text(encoding="utf-8"))
         mvp = next(p for p in data["phases"] if p["dir"] == "0-mvp")
         assert mvp["status"] == "completed"
         assert "completed_at" in mvp
@@ -295,7 +322,7 @@ class TestUpdateTopIndex:
     def test_error(self, executor, top_index):
         executor._top_index_file = top_index
         executor._update_top_index("error")
-        data = json.loads(top_index.read_text())
+        data = json.loads(top_index.read_text(encoding="utf-8"))
         mvp = next(p for p in data["phases"] if p["dir"] == "0-mvp")
         assert mvp["status"] == "error"
         assert "failed_at" in mvp
@@ -303,7 +330,7 @@ class TestUpdateTopIndex:
     def test_blocked(self, executor, top_index):
         executor._top_index_file = top_index
         executor._update_top_index("blocked")
-        data = json.loads(top_index.read_text())
+        data = json.loads(top_index.read_text(encoding="utf-8"))
         mvp = next(p for p in data["phases"] if p["dir"] == "0-mvp")
         assert mvp["status"] == "blocked"
         assert "blocked_at" in mvp
@@ -311,16 +338,16 @@ class TestUpdateTopIndex:
     def test_other_phases_unchanged(self, executor, top_index):
         executor._top_index_file = top_index
         executor._update_top_index("completed")
-        data = json.loads(top_index.read_text())
+        data = json.loads(top_index.read_text(encoding="utf-8"))
         polish = next(p for p in data["phases"] if p["dir"] == "1-polish")
         assert polish["status"] == "pending"
 
     def test_nonexistent_dir_is_noop(self, executor, top_index):
         executor._top_index_file = top_index
         executor._phase_dir_name = "no-such-dir"
-        original = json.loads(top_index.read_text())
+        original = json.loads(top_index.read_text(encoding="utf-8"))
         executor._update_top_index("completed")
-        after = json.loads(top_index.read_text())
+        after = json.loads(top_index.read_text(encoding="utf-8"))
         for p_before, p_after in zip(original["phases"], after["phases"]):
             assert p_before["status"] == p_after["status"]
 
@@ -444,8 +471,12 @@ class TestInvokeCodex:
         assert "exec" in cmd
         assert "--dangerously-bypass-approvals-and-sandbox" in cmd
         assert "--json" in cmd
-        assert "PREAMBLE" in cmd[-1]
-        assert "UI를 구현하세요" in cmd[-1]
+        # 프롬프트는 Windows 명령줄 길이 제한(8191자) 때문에 stdin으로 넘어간다.
+        # 인자 자리에는 "-"만 남는다 (execute.py의 _invoke_codex 주석 참고).
+        assert cmd[-1] == "-"
+        prompt = mock_run.call_args.kwargs["input"]
+        assert "PREAMBLE" in prompt
+        assert "UI를 구현하세요" in prompt
 
     def test_saves_output_json(self, executor):
         mock_result = MagicMock(returncode=0, stdout='{"ok": true}', stderr="")
@@ -456,7 +487,7 @@ class TestInvokeCodex:
 
         output_file = executor._phase_dir / "step2-output.json"
         assert output_file.exists()
-        data = json.loads(output_file.read_text())
+        data = json.loads(output_file.read_text(encoding="utf-8"))
         assert data["step"] == 2
         assert data["name"] == "ui"
         assert data["exitCode"] == 0
@@ -531,7 +562,7 @@ class TestCheckBlockers:
         d = tmp_project / "phases" / "test-phase"
         d.mkdir(exist_ok=True)
         index = {"project": "T", "phase": "test", "steps": steps}
-        (d / "index.json").write_text(json.dumps(index))
+        (d / "index.json").write_text(json.dumps(index), encoding="utf-8")
 
         with patch.object(ex, "ROOT", tmp_project):
             inst = ex.StepExecutor.__new__(ex.StepExecutor)
@@ -576,7 +607,7 @@ class TestOnceFlag:
         d.mkdir(exist_ok=True)
         steps = [{"step": i, "name": f"s{i}", "status": "pending"} for i in range(pending_count)]
         index = {"project": "T", "phase": "multi", "steps": steps}
-        (d / "index.json").write_text(json.dumps(index, ensure_ascii=False))
+        (d / "index.json").write_text(json.dumps(index, ensure_ascii=False), encoding="utf-8")
 
         with patch.object(ex, "ROOT", tmp_project):
             inst = ex.StepExecutor("multi", once=once)

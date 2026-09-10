@@ -29,10 +29,10 @@ n8n → Operations API ─┘
 
 따라서 조회 재사용을 위해 새 계층을 만들지 않는다. 자리는 두 곳뿐이다.
 
-- **순수 집계** → `src/lib/`. 스냅샷과 프리셋을 받아 계산만 하는 함수. I/O 없음
+- **순수 집계** → `src/lib/`. 스냅샷과 프리셋을 받아 계산만 하는 함수. Store를 직접 부르지 않고 주입받는다 — `collectOperations`처럼 주입된 Store를 `await`하는 것은 허용하되, 어느 구현인지는 모른다
 - **조립** → route handler가 `get*Store()`를 호출해 집계 함수에 넘긴다
 
-Agent Tool은 **집계 함수를 호출하고, Store를 직접 호출하지 않는다.** 이유: Tool이 자체 집계를 갖는 순간 Admin 화면과 Agent 답변이 같은 회차에 대해 다른 숫자를 말하게 된다.
+Agent Tool은 **집계를 스스로 하지 않는다.** 주입받은 읽기 Store를 호출해 id·제목 같은 원본을 가져오는 것은 허용하되, 좌석 수치는 반드시 집계 함수를 거친다. 이유: Tool이 자체 집계를 갖는 순간 Admin 화면과 Agent 답변이 같은 회차에 대해 다른 숫자를 말하게 된다.
 
 ## Agent 권한 경계
 
@@ -45,13 +45,13 @@ Agent Tool은 **집계 함수를 호출하고, Store를 직접 호출하지 않�
 
 - Tool 레지스트리에는 읽기 함수만 등록한다
 - Agent 모듈은 `hold` / `release` / `confirmSeats` / `releaseSold` / `revertSold` / `ReservationStore.create` / `cancel` 을 **import하지 않는다**
-- 그 사실을 테스트로 고정한다 — Agent 모듈이 쓰기 API를 참조하지 않음을 검증하는 테스트를 Step 4에 둔다
+- 그 사실을 테스트로 고정한다 — Agent 모듈 파일 경로를 배열 상수로 두고, 그 소스에 쓰기 API 식별자가 없음을 검증한다
 
 쓰기 Agent는 이번 범위 밖이다. 하게 된다면 사용자 승인 → 권한 확인 → 실행 → 감사 로그가 선행돼야 하며, 별도 ADR을 남긴다.
 
 ## 보안 규약
 
-`scripts/execute.py`의 가드레일은 `AGENTS.md`와 `docs/*.md`만 싣는다. `CLAUDE.md`는 실리지 않으므로, AI 확장에 관한 경계는 **여기가 유일한 전달 경로**다.
+`scripts/execute.py`의 가드레일은 `AGENTS.md`와 `docs/*.md`만 싣는다(`GUARDRAIL_DOC_EXCLUDE` 제외). `CLAUDE.md`는 실리지 않으므로, AI 확장에 관한 경계는 **여기가 유일한 전달 경로**다.
 
 ### 엔드포인트 배치
 
@@ -144,4 +144,4 @@ n8n은 저장소 밖 인프라다. **워크플로 JSON export와 재현 절차�
 
 미래 계획을 이미 구현된 구조처럼 쓰지 않는다. 문서가 수정되는 것은 정상이고, 중요한 것은 현재 코드와 현재 아키텍처 문서가 서로 맞는 상태를 유지하는 것이다.
 
-**이 문서에 실행 로그나 체크리스트를 쌓지 않는다.** `docs/*.md`는 `scripts/execute.py`가 매 step 프롬프트에 전문을 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다. 진행 상태의 단일 출처는 `phases/*/index.json`이다.
+**이 문서에 실행 로그나 체크리스트를 쌓지 않는다.** 이 문서는 `scripts/execute.py`가 매 step 프롬프트에 전문을 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다. 진행 상태의 단일 출처는 `phases/*/index.json`이다.

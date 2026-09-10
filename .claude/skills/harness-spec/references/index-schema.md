@@ -78,4 +78,4 @@ phase 레벨(`phases/index.json`)의 status도 함께 되돌려야 한다.
 어긋나면 그쪽이 틀린 것이다.
 
 `docs/*.md`에 실행 로그나 체크리스트를 쌓지 마라 — `execute.py`가 매 step 프롬프트에
-`docs/*.md` 전문을 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다.
+`docs/*.md`를 싣기 때문에, 분량이 그대로 모든 step의 비용이 된다.

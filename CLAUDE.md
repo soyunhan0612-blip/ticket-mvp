@@ -37,6 +37,7 @@
 - 훅은 위험 명령 차단(`codex-block-dangerous.cjs`), TDD 가드(`codex-tdd-guard.cjs`), Stop 검증 게이트(Codex: `codex-verify-gate.cjs` / Claude: `claude-verify-gate.cjs` — 종료 코드 규약만 다르고 검사 로직은 동일)로 분리한다. Windows와 Unix에서 동일하게 동작하도록 Node로 구현한다.
 - `package.json`이 생기기 전에는 TDD와 Stop 검증을 건너뛴다. 스캐폴딩 이후 Stop 훅은 `npm run lint`와 `npm run test`만 실행하며, `npm run build`는 배포 또는 라우팅·설정 변경 시 명시적으로 실행한다.
 - Codex에서는 저장소 훅을 최초 1회 review & trust 해야 한다.
+- `scripts/execute.py`의 테스트는 `python -m pytest scripts/test_execute.py`로 돈다. vitest도 `pnpm test:hooks`도 이것을 수집하지 않으므로 CI에 별도 스텝이 있다.
 - 훅 스크립트의 테스트는 `pnpm test:hooks`로 돈다. vitest의 `include`가 `src/**`뿐이라 `pnpm test`는 이것을 수집하지 않는다. CI에서 별도 스텝으로 실행하며, Stop 훅에는 넣지 않는다 (매 정지마다 도는 비용이 이득보다 크다).
 
 ## 에이전트 자산 (Claude Code 전용)
@@ -44,10 +45,19 @@
 Codex는 이 자산들을 보지 못한다. `execute.py`가 띄우는 세션은 `.codex/hooks.json`과 `scripts/hooks/`만 쓴다.
 
 - `.claude/agents/critical-rules-auditor.md` — 위 CRITICAL 규칙과 `AGENTS.md` 차단 이슈를 코드에서 검사. `src/lib/`·`src/services/`·`src/app/api/`를 건드린 변경 후에 돌린다
-- `.claude/agents/docs-drift-detector.md` — 코드와 `docs/ARCHITECTURE.md`·`ADR.md`·`README.md` 진행표의 불일치를 찾는다. 문서를 직접 고치지는 않는다
+- `.claude/agents/docs-drift-detector.md` — 코드와 `docs/ARCHITECTURE.md`·`ADR.md`·`README.md` 진행표의 불일치를 찾는다. 문서를 직접 고치지는 않는다. 이미 연기하기로 한 항목은 호출할 때 알려준다
+- `.claude/agents/harness-preflight.md` — `execute.py` 실행 직전에 명세의 줄 번호 참조·가드레일 문서와 코드의 모순·외부 API 계약을 확인한다. step당 최대 30분 × 3회 재시도라 사전 점검이 훨씬 싸다
 - `.claude/skills/harness-spec/` — step 명세 설계 7원칙과 `stepN.md`·`index.json` 템플릿
+- `.claude/skills/live-ai-check/` — AI 라우트를 실제 Anthropic API로 검증하는 절차. 이 저장소는 SDK를 목킹하지 않아 `toolRunner` 경로의 자동 커버리지가 구조적으로 0이다
 - `.claude/commands/harness.md` — `execute.py` 실행법과 `error`/`blocked` 복구 절차
 - `.claude/commands/review.md` — 위 서브에이전트 두 개를 병렬로 돌려 결과를 합친다
+
+## 이 머신의 환경 함정
+
+- `pnpm`과 `python3`가 PATH에 없다. 검증은 `npm run ...`, 하네스는 `python`으로 실행한다
+- heredoc을 지나는 백슬래시 이스케이프(`\n` 등)가 실제 개행이 되어 파일을 깨뜨린다. 템플릿 리터럴을 쓰거나 `chr(92)`로 우회한다
+- 파일마다 줄바꿈이 CRLF와 LF로 갈린다. 문자열 치환 전에 확인하지 않으면 앵커가 조용히 빗나간다
+- Windows `python`은 `/tmp` 경로를 읽지 못한다. 임시 파일은 저장소 안이나 Windows 경로에 만든다
 
 ## 명령어
 ```
@@ -56,6 +66,7 @@ pnpm build    # 프로덕션 빌드 (배포 직전 수동)
 pnpm lint     # ESLint
 pnpm test     # 테스트 (Stop 훅에서 자동)
 pnpm test:hooks  # 훅 스크립트 테스트 (CI에서 별도 스텝)
+python -m pytest scripts/test_execute.py   # 하네스 테스트 (CI에서 별도 스텝)
 ```
 
 패키지 매니저는 pnpm으로 고정한다 (`package.json`의 `packageManager`). Stop 훅 스크립트는 `npm run lint`/`npm run test`를 그대로 호출하는데, pnpm이 만든 `node_modules/.bin`에서도 동일하게 동작하므로 훅은 바꾸지 않는다.

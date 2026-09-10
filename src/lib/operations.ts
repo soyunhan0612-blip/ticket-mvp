@@ -1,5 +1,5 @@
 import { computeSalesRate, computeSeatStats } from "@/lib/seat-stats";
-import type { SeatStore, ShowStore } from "@/services";
+import type { OpsReadStores } from "@/lib/ops-agent-tools";
 
 export interface OperationsRow {
   showId: string;
@@ -19,7 +19,7 @@ export interface OperationsFilter {
 }
 
 export async function collectOperations(
-  stores: { showStore: ShowStore; seatStore: SeatStore },
+  stores: OpsReadStores,
   filter: OperationsFilter,
 ): Promise<OperationsRow[]> {
   const shows = (await stores.showStore.list()).filter(

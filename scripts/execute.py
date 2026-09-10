@@ -32,6 +32,12 @@ if sys.platform == "win32":
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# 가드레일에서 뺄 문서. 구현 지침이 아닌 것만 넣는다.
+# PROGRESS는 과거형 저널이라 낡은 상태 서술이 정상인데, Codex는 그 단서를 받지 못한 채
+# 가드레일로 읽는다 - 명세 다수가 "모순이면 blocked"를 지시하므로 실패를 부를 수 있다.
+# PERF_MEASUREMENT는 사람이 따라 하는 측정 절차다. 둘이 주입량의 28%(420줄)를 차지한다.
+GUARDRAIL_DOC_EXCLUDE = frozenset({"PROGRESS.md", "PERF_MEASUREMENT.md"})
+
 
 @contextlib.contextmanager
 def progress_indicator(label: str):
@@ -196,6 +202,8 @@ class StepExecutor:
         docs_dir = ROOT / "docs"
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
+                if doc.name in GUARDRAIL_DOC_EXCLUDE:
+                    continue
                 sections.append(f"## {doc.stem}\n\n{doc.read_text(encoding='utf-8')}")
         return "\n\n---\n\n".join(sections) if sections else ""
 

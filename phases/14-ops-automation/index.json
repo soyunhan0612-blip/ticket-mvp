@@ -1,0 +1,21 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "14-ops-automation",
+  "steps": [
+    {
+      "step": 0,
+      "name": "sellout-alert",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "alerts-api",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "n8n-workflow",
+      "status": "pending"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { AdminSeatMap } from "@/components/admin/AdminSeatMap";
 import { OccupancyStats } from "@/components/admin/OccupancyStats";
+import { OpsAgentPanel } from "@/components/admin/OpsAgentPanel";
 import { OperationsPanel } from "@/components/admin/OperationsPanel";
 import { Band } from "@/components/ui/Band";
 import { generateSeats } from "@/lib/mock-data";
@@ -137,6 +138,8 @@ export default function AdminPage(): JSX.Element {
           )}
 
           <OperationsPanel showId={showId} />
+
+          <OpsAgentPanel showId={showId} />
 
           {canShowDashboard && (
             <div className="space-y-2xl">

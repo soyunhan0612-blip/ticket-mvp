@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ErrorNotice,
+  OPERATIONS_SUMMARY_ERROR,
   UnauthorizedNotice,
 } from "@/components/admin/admin-query";
 import { Button } from "@/components/ui/Button";
@@ -84,10 +85,10 @@ export function OperationsPanel({
 
       if (response.status === 401) throw new UnauthorizedError();
       if (!response.ok) {
-        throw new Error("운영 요약을 생성하지 못했습니다.");
+        throw new Error(OPERATIONS_SUMMARY_ERROR);
       }
       if (!response.body) {
-        throw new Error("운영 요약을 생성하지 못했습니다.");
+        throw new Error(OPERATIONS_SUMMARY_ERROR);
       }
 
       const reader = response.body.getReader();
@@ -111,7 +112,7 @@ export function OperationsPanel({
       setSummary((current) => current + finalChunk);
 
       if (received.length === 0) {
-        throw new Error("운영 요약을 생성하지 못했습니다.");
+        throw new Error(OPERATIONS_SUMMARY_ERROR);
       }
     } catch (error) {
       // 사용자가 필터를 바꿔 끊은 것은 실패가 아니다.
@@ -121,7 +122,7 @@ export function OperationsPanel({
       setSummaryError(
         error instanceof Error
           ? error
-          : new Error("운영 요약을 생성하지 못했습니다."),
+          : new Error(OPERATIONS_SUMMARY_ERROR),
       );
     } finally {
       if (summaryAbortRef.current === abortController) {
