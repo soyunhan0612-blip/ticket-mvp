@@ -194,6 +194,7 @@ Day 9에 인메모리 저장소를 **Upstash Redis**로 교체했습니다. 좌�
 ## 문서
 
 - [PRD](docs/PRD.md) — 요구사항·범위·검증 시나리오
+- [Domain Reference](docs/reference/DOMAIN.md) — 좌석 상태 전이·홀드 개념·보안 규칙의 배경
 - [Architecture](docs/ARCHITECTURE.md) — 렌더링 경계·데이터 흐름·Store 인터페이스
 - [ADR](docs/ADR.md) — 기술 선택과 트레이드오프
 - [AI Operations Expansion](docs/AI_OPERATIONS_EXPANSION_PLAN.md) — 조회 전용 AI Agent·n8n 확장의 경계와 단계
