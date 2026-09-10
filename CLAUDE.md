@@ -44,10 +44,19 @@
 Codex는 이 자산들을 보지 못한다. `execute.py`가 띄우는 세션은 `.codex/hooks.json`과 `scripts/hooks/`만 쓴다.
 
 - `.claude/agents/critical-rules-auditor.md` — 위 CRITICAL 규칙과 `AGENTS.md` 차단 이슈를 코드에서 검사. `src/lib/`·`src/services/`·`src/app/api/`를 건드린 변경 후에 돌린다
-- `.claude/agents/docs-drift-detector.md` — 코드와 `docs/ARCHITECTURE.md`·`ADR.md`·`README.md` 진행표의 불일치를 찾는다. 문서를 직접 고치지는 않는다
+- `.claude/agents/docs-drift-detector.md` — 코드와 `docs/ARCHITECTURE.md`·`ADR.md`·`README.md` 진행표의 불일치를 찾는다. 문서를 직접 고치지는 않는다. 이미 연기하기로 한 항목은 호출할 때 알려준다
+- `.claude/agents/harness-preflight.md` — `execute.py` 실행 직전에 명세의 줄 번호 참조·가드레일 문서와 코드의 모순·외부 API 계약을 확인한다. step당 최대 30분 × 3회 재시도라 사전 점검이 훨씬 싸다
 - `.claude/skills/harness-spec/` — step 명세 설계 7원칙과 `stepN.md`·`index.json` 템플릿
+- `.claude/skills/live-ai-check/` — AI 라우트를 실제 Anthropic API로 검증하는 절차. 이 저장소는 SDK를 목킹하지 않아 `toolRunner` 경로의 자동 커버리지가 구조적으로 0이다
 - `.claude/commands/harness.md` — `execute.py` 실행법과 `error`/`blocked` 복구 절차
 - `.claude/commands/review.md` — 위 서브에이전트 두 개를 병렬로 돌려 결과를 합친다
+
+## 이 머신의 환경 함정
+
+- `pnpm`과 `python3`가 PATH에 없다. 검증은 `npm run ...`, 하네스는 `python`으로 실행한다
+- heredoc을 지나는 백슬래시 이스케이프(`\n` 등)가 실제 개행이 되어 파일을 깨뜨린다. 템플릿 리터럴을 쓰거나 `chr(92)`로 우회한다
+- 파일마다 줄바꿈이 CRLF와 LF로 갈린다. 문자열 치환 전에 확인하지 않으면 앵커가 조용히 빗나간다
+- Windows `python`은 `/tmp` 경로를 읽지 못한다. 임시 파일은 저장소 안이나 Windows 경로에 만든다
 
 ## 명령어
 ```
