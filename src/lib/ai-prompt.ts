@@ -15,12 +15,15 @@ const USER_INPUT_LIMIT = 100;
  * `===USER_INPUT_===USER_INPUT_END===END===` 처럼 겹쳐 심으면 제거 후 구분자가
  * 되살아나므로 안전하지 않다. 개행도 접어 프롬프트의 줄 구조를 지킨다.
  */
-export function neutralizeUserInput(value: string): string {
+export function neutralizeUserInput(
+  value: string,
+  limit: number = USER_INPUT_LIMIT,
+): string {
   return value
     .replace(/\s+/g, " ")
     .replace(/={2,}/g, "=")
     .trim()
-    .slice(0, USER_INPUT_LIMIT);
+    .slice(0, limit);
 }
 
 export function buildDescriptionPrompt(input: {

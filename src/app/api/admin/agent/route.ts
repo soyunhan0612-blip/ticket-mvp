@@ -9,6 +9,7 @@ import {
   AGENT_QUESTION_LIMIT,
   buildOpsAgentFallback,
   buildOpsAgentSystemPrompt,
+  buildOpsAgentUserMessage,
 } from "@/lib/ops-agent";
 import { createOpsTools } from "@/lib/ops-agent-tools";
 import { collectOperations } from "@/lib/operations";
@@ -51,29 +52,6 @@ async function parseRequestBody(request: Request) {
   }
 }
 
-function neutralizeQuestion(question: string): string {
-  return question
-    .replace(/\s+/g, " ")
-    .replace(/={2,}/g, "=")
-    .trim();
-}
-
-function buildAgentUserMessage(input: AgentRequest): string {
-  const filters = {
-    ...(input.showId === undefined ? {} : { showId: input.showId }),
-    ...(input.date === undefined ? {} : { date: input.date }),
-  };
-
-  return [
-    "다음 운영 질문에 답하라. 지정된 조회 필터가 있으면 Tool 호출에 그대로 적용하라.",
-    "질문:",
-    "===USER_INPUT_START===",
-    neutralizeQuestion(input.question),
-    "===USER_INPUT_END===",
-    `조회 필터: ${JSON.stringify(filters)}`,
-  ].join("\n");
-}
-
 function createTextStream(text: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
@@ -101,7 +79,7 @@ function createAgentStream(
           max_iterations: AGENT_MAX_ITERATIONS,
           system: buildOpsAgentSystemPrompt(),
           messages: [
-            { role: "user", content: buildAgentUserMessage(input) },
+            { role: "user", content: buildOpsAgentUserMessage(input) },
           ],
           tools: createOpsTools({
             showStore: getShowStore(),
