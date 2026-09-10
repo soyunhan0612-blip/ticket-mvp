@@ -18,14 +18,14 @@
 4. **4석 상한** — 5번째 좌석을 눌러 보세요. 클라이언트뿐 아니라 `POST /api/holds`에서도 거절합니다 (`src/lib/seat-rules.ts`를 route handler가 재사용).
 5. **좌석 경합** — 같은 좌석 URL을 **시크릿 창**으로 하나 더 엽니다(익명 쿠키가 분리돼 다른 사용자가 됩니다). 한쪽에서 좌석을 잡으면 반대쪽은 3초 안에 회색으로 바뀌고, 같은 좌석을 동시에 잡으면 한쪽만 성공하고 나머지는 **선택 묶음 전체가** 롤백됩니다.
 6. **[/reservations](https://ticket-mvp-eight.vercel.app/reservations)** — 예매 확정 후 내역과 취소. 취소하면 좌석이 다시 예매 가능으로 돌아옵니다.
-7. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 전체·예매가능·홀드중·판매완료 4개 카드와 읽기 전용 좌석맵. 위에서 잡은 좌석이 여기 반영됩니다. (로그인 필요)
+7. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 회차를 고르기 전에 **회차별 운영 표**(전체·예매가능·홀드·판매완료·판매율)와 **AI 운영 요약** 버튼이 먼저 보입니다. 요약은 버튼을 누를 때만 호출하고, AI 키가 없으면 같은 집계를 읽어 주는 고정 문장으로 폴백합니다. 회차를 고르면 4개 카드와 읽기 전용 좌석맵이 붙고, 위에서 잡은 좌석이 여기 반영됩니다. (로그인 필요)
 8. **[/seller/new](https://ticket-mvp-eight.vercel.app/seller/new)** — 공연 등록과 AI 설명 스트리밍. (로그인 필요)
 
 > 5번 장면의 데모 GIF는 아직 첨부하지 않았습니다. 추가 예정 경로는 `docs/assets/two-tab-seat-conflict.gif`입니다.
 
 ## 심사자용 계정
 
-`/admin`·`/seller` 이하 경로와 `/api/admin` API는 미들웨어의 환경변수 기반 인증 뒤에 있습니다. 미인증 상태로 들어가면 **주소는 그대로 둔 채 로그인 모달**이 뜹니다.
+`/admin`·`/seller` 이하 경로, `/api/admin` API, 그리고 `/api/shows`의 **쓰기**(공연 등록)는 미들웨어의 환경변수 기반 인증 뒤에 있습니다. 공연 목록 조회(`GET /api/shows`)는 공개라 경로가 아니라 메서드로 갈립니다. 미인증 상태로 들어가면 **주소는 그대로 둔 채 로그인 모달**이 뜹니다.
 
 - 사용자명: `<BASIC_AUTH_USER 값>`
 - 비밀번호: `<BASIC_AUTH_PASS 값>`
@@ -50,7 +50,7 @@ curl -u '<user>:<pass>' -b 'userId=local-check' \
 - **TypeScript strict · Tailwind CSS** — 도메인 계약을 타입으로 고정하고, 정해진 UI 토큰 안에서 화면을 구성합니다. 색·타입·간격·라디우스는 `globals.css`의 CSS 변수 한 곳에 모으고 Tailwind가 그것을 참조하므로, 브랜드 교체가 토큰 블록 하나로 끝납니다.
 - **TanStack Query** — 좌석 스냅샷을 3초마다 폴링하고 hold 요청을 낙관적으로 반영한 뒤, 충돌 시 선택 묶음 전체를 롤백합니다.
 - **Jotai** — `atomFamily(seatId)`로 2,000개 좌석의 구독을 분리하고 실제 변경된 좌석만 갱신합니다.
-- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 45개 파일 · 404개 테스트가 CI에서 lint·build와 함께 돕니다.
+- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 55개 파일 · 512개 테스트가 CI에서 lint·build와 함께 돕니다.
 - **Upstash Redis** — 공연·회차·좌석·예약을 영속화합니다. 좌석 상태는 회차별 sparse Hash에 저장하고 다중 좌석 전환은 Lua로 처리합니다.
 - **Zod** — 셀러 등록·AI 요청 등 외부에서 들어오는 본문을 route handler 입구에서 파싱합니다. 타입 단언으로 넘기지 않습니다.
 - **Embla Carousel** — 랜딩 히어로 슬라이드에만 씁니다. 직접 구현 대신 도입한 이유는 [ADR-006](docs/ADR.md#adr-006-랜딩-히어로-캐러셀에-embla-도입-직접-구현-대신)에 있습니다.
@@ -82,8 +82,9 @@ TanStack Query와 Jotai는 목록에 스택을 더하기 위해 선택한 것이
 | 9 Admin·Redis | 완료 | 재사용 좌석맵 기반 Admin, SVG `viewBox` 줌/팬, Redis Store·Lua·팩토리 교체; 로컬·프로덕션 양쪽에서 Redis 연결 확인 |
 | 10 릴리스 | 일부 blocked | Basic Auth fail-closed 수정, README 정리. 실측값이 없어 지표 문서화 단계는 [`blocked`](phases/10-release/index.json)로 멈춤 |
 | 11 성능 계측 | 완료 (초기 마운트 제외) | 렌더 카운터와 before/after 계측 테스트로 리렌더 수를 실측, 수동 측정 절차를 [Perf Measurement](docs/PERF_MEASUREMENT.md)에 문서화 |
+| 12 AI 운영 조회 | 완료 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
 
-세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10·11은 Day 0~9 구현 이후의 릴리스·계측 작업입니다.
+세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~12는 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
 
 ## 성능 before / after
 
@@ -164,7 +165,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm dev` | 개발 서버 |
 | `pnpm build` | 프로덕션 빌드 (배포 직전 수동) |
 | `pnpm lint` | ESLint |
-| `pnpm test` | Vitest 전체 테스트 (45개 파일 · 404개 테스트) |
+| `pnpm test` | Vitest 전체 테스트 (55개 파일 · 512개 테스트) |
 | `pnpm test:watch` | Vitest 워치 모드 |
 
 ## 데이터 영속성
@@ -194,6 +195,7 @@ Day 9에 인메모리 저장소를 **Upstash Redis**로 교체했습니다. 좌�
 - [PRD](docs/PRD.md) — 요구사항·범위·검증 시나리오
 - [Architecture](docs/ARCHITECTURE.md) — 렌더링 경계·데이터 흐름·Store 인터페이스
 - [ADR](docs/ADR.md) — 기술 선택과 트레이드오프
+- [AI Operations Expansion](docs/AI_OPERATIONS_EXPANSION_PLAN.md) — 조회 전용 AI Agent·n8n 확장의 경계와 단계
 - [Progress Journal](docs/PROGRESS.md) — Day별 실제 산출물과 남은 검증
 - [Perf Measurement](docs/PERF_MEASUREMENT.md) — 자동/수동 측정 절차와 재현 방법
 - [UX Principles](docs/UX_PRINCIPLES.md) / [UI Guide](docs/UI_GUIDE.md) — UX 원칙과 UI 규칙

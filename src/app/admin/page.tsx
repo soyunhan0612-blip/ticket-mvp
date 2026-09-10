@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { AdminSeatMap } from "@/components/admin/AdminSeatMap";
 import { OccupancyStats } from "@/components/admin/OccupancyStats";
+import { OperationsPanel } from "@/components/admin/OperationsPanel";
 import { Band } from "@/components/ui/Band";
 import { generateSeats } from "@/lib/mock-data";
 import { SECTIONS } from "@/lib/seat-map";
@@ -134,6 +135,8 @@ export default function AdminPage(): JSX.Element {
               공연 또는 회차 목록을 불러오지 못했습니다.
             </p>
           )}
+
+          <OperationsPanel showId={showId} />
 
           {canShowDashboard && (
             <div className="space-y-2xl">

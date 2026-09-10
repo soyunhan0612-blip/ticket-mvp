@@ -1,0 +1,40 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "12-ai-operations",
+  "steps": [
+    {
+      "step": 0,
+      "name": "seat-stats",
+      "status": "completed",
+      "started_at": "2026-09-07T23:36:31+0900",
+      "summary": "좌석 점유 집계를 순수 computeSeatStats 함수로 추출하고 Admin stats 라우트가 이를 재사용하도록 리팩터링",
+      "completed_at": "2026-09-07T23:43:27+0900"
+    },
+    {
+      "step": 1,
+      "name": "operations-api",
+      "status": "completed",
+      "started_at": "2026-09-07T23:51:20+0900",
+      "summary": "판매율 계산과 Store 주입형 운영 집계를 추가하고 필터 가능한 Admin Operations API로 제공",
+      "completed_at": "2026-09-08T00:03:27+0900"
+    },
+    {
+      "step": 2,
+      "name": "ai-ops-summary",
+      "status": "completed",
+      "started_at": "2026-09-08T00:11:13+0900",
+      "summary": "서버 운영 집계를 안전한 프롬프트와 키 없는 폴백을 지원하는 Admin AI 요약 스트리밍 API로 제공",
+      "completed_at": "2026-09-08T00:28:24+0900"
+    },
+    {
+      "step": 3,
+      "name": "admin-ops-panel",
+      "status": "completed",
+      "started_at": "2026-09-08T09:53:15+0900",
+      "summary": "src/components/admin/OperationsPanel.tsx를 생성하고 /admin의 회차 선택 게이트 밖에 전체·공연별 운영 표와 요청형 AI 요약을 배치",
+      "completed_at": "2026-09-08T10:23:13+0900"
+    }
+  ],
+  "created_at": "2026-09-07T23:36:31+0900",
+  "completed_at": "2026-09-08T10:23:14+0900"
+}

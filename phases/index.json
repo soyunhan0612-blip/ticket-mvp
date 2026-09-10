@@ -61,6 +61,15 @@
       "dir": "11-perf-metrics",
       "status": "completed",
       "completed_at": "2026-08-13T22:41:25+0900"
+    },
+    {
+      "dir": "12-ai-operations",
+      "status": "completed",
+      "completed_at": "2026-09-08T10:23:14+0900"
+    },
+    {
+      "dir": "13-ops-agent",
+      "status": "pending"
     }
   ]
 }

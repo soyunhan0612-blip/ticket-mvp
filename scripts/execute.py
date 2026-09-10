@@ -70,13 +70,14 @@ class StepExecutor:
     STATUS_MSG = "chore({phase}): step {num} — {name} ({status})"
     TZ = timezone(timedelta(hours=9))
 
-    def __init__(self, phase_dir_name: str, *, auto_push: bool = False):
+    def __init__(self, phase_dir_name: str, *, auto_push: bool = False, once: bool = False):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
         self._phase_dir_name = phase_dir_name
         self._top_index_file = self._phases_dir / "index.json"
         self._auto_push = auto_push
+        self._once = once
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -99,8 +100,8 @@ class StepExecutor:
         self._checkout_branch()
         guardrails = self._load_guardrails()
         self._ensure_created_at()
-        self._execute_all_steps(guardrails)
-        self._finalize()
+        if self._execute_all_steps(guardrails):
+            self._finalize()
 
     # --- timestamps ---
 
@@ -416,13 +417,14 @@ class StepExecutor:
 
         return False  # unreachable
 
-    def _execute_all_steps(self, guardrails: str):
+    def _execute_all_steps(self, guardrails: str) -> bool:
+        """모든 step을 끝냈으면 True, --once로 중단했으면 False (phase는 아직 미완)."""
         while True:
             index = self._read_json(self._index_file)
             pending = next((s for s in index["steps"] if s["status"] == "pending"), None)
             if pending is None:
                 print("\n  All steps completed!")
-                return
+                return True
 
             step_num = pending["step"]
             for s in index["steps"]:
@@ -432,6 +434,18 @@ class StepExecutor:
                     break
 
             self._execute_single_step(pending, guardrails)
+
+            if self._once:
+                remaining = [
+                    s for s in self._read_json(self._index_file)["steps"]
+                    if s["status"] == "pending"
+                ]
+                if remaining:
+                    nums = ", ".join(str(s["step"]) for s in remaining)
+                    print("")
+                    print(f"  --once: step {step_num} 완료. 남은 step {nums}")
+                    print(f"  같은 명령을 다시 실행하면 step {remaining[0]['step']}부터 이어집니다.")
+                    return False
 
     def _finalize(self):
         index = self._read_json(self._index_file)
@@ -463,9 +477,14 @@ def main():
     parser = argparse.ArgumentParser(description="Harness Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="pending step 하나만 실행하고 종료한다 (단계별 확인용)",
+    )
     args = parser.parse_args()
 
-    StepExecutor(args.phase_dir, auto_push=args.push).run()
+    StepExecutor(args.phase_dir, auto_push=args.push, once=args.once).run()
 
 
 if __name__ == "__main__":

@@ -124,11 +124,11 @@ test("extracts the minimum Node version from the project engine range", () => {
 
 test("selects a compatible Node directory later in PATH", () => {
   const versions = new Map([
-    [path.join("/old", "node"), "v20.11.1"],
-    [path.join("/current", "node"), "v22.22.3"],
+    [path.posix.join("/old", "node"), "v20.11.1"],
+    [path.posix.join("/current", "node"), "v22.22.3"],
   ]);
   const directory = findCompatibleNodeDirectory({
-    pathValue: ["/old", "/current", "/old"].join(path.delimiter),
+    pathValue: ["/old", "/current", "/old"].join(":"),
     minimumVersion: [22, 0, 0],
     platform: "darwin",
     fileExists: (file) => versions.has(file) || file.endsWith("/npm"),

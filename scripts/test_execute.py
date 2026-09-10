@@ -564,3 +564,97 @@ class TestCheckBlockers:
         with pytest.raises(SystemExit) as exc_info:
             inst._check_blockers()
         assert exc_info.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# --once (단계별 실행)
+# ---------------------------------------------------------------------------
+
+class TestOnceFlag:
+    def _executor(self, tmp_project, pending_count, *, once):
+        d = tmp_project / "phases" / "multi"
+        d.mkdir(exist_ok=True)
+        steps = [{"step": i, "name": f"s{i}", "status": "pending"} for i in range(pending_count)]
+        index = {"project": "T", "phase": "multi", "steps": steps}
+        (d / "index.json").write_text(json.dumps(index, ensure_ascii=False))
+
+        with patch.object(ex, "ROOT", tmp_project):
+            inst = ex.StepExecutor("multi", once=once)
+        inst._root = str(tmp_project)
+        inst._phases_dir = tmp_project / "phases"
+        inst._phase_dir = d
+        inst._phase_dir_name = "multi"
+        inst._index_file = d / "index.json"
+        inst._top_index_file = tmp_project / "phases" / "index.json"
+        return inst
+
+    def _spy(self, inst, calls):
+        """_execute_single_step 대역. 호출을 기록하고 해당 step을 completed로 바꾼다."""
+        def fake(pending, guardrails):
+            calls.append(pending["step"])
+            index = inst._read_json(inst._index_file)
+            for s in index["steps"]:
+                if s["step"] == pending["step"]:
+                    s["status"] = "completed"
+            inst._write_json(inst._index_file, index)
+            return True
+        return fake
+
+    def _pending_steps(self, inst):
+        return [s["step"] for s in inst._read_json(inst._index_file)["steps"] if s["status"] == "pending"]
+
+    def test_once_runs_only_one_step(self, tmp_project):
+        inst = self._executor(tmp_project, 3, once=True)
+        calls = []
+        with patch.object(inst, "_execute_single_step", side_effect=self._spy(inst, calls)):
+            assert inst._execute_all_steps("") is False
+        assert calls == [0]
+        assert self._pending_steps(inst) == [1, 2]
+
+    def test_once_on_last_pending_step_returns_true(self, tmp_project):
+        inst = self._executor(tmp_project, 1, once=True)
+        calls = []
+        with patch.object(inst, "_execute_single_step", side_effect=self._spy(inst, calls)):
+            assert inst._execute_all_steps("") is True
+        assert calls == [0]
+        assert self._pending_steps(inst) == []
+
+    def test_default_runs_every_pending_step(self, tmp_project):
+        inst = self._executor(tmp_project, 3, once=False)
+        calls = []
+        with patch.object(inst, "_execute_single_step", side_effect=self._spy(inst, calls)):
+            assert inst._execute_all_steps("") is True
+        assert calls == [0, 1, 2]
+        assert self._pending_steps(inst) == []
+
+    def _run_with_stubs(self, inst, all_steps_result):
+        with patch.object(inst, "_print_header"), \
+             patch.object(inst, "_check_clean_worktree"), \
+             patch.object(inst, "_check_blockers"), \
+             patch.object(inst, "_checkout_branch"), \
+             patch.object(inst, "_load_guardrails", return_value=""), \
+             patch.object(inst, "_ensure_created_at"), \
+             patch.object(inst, "_execute_all_steps", return_value=all_steps_result), \
+             patch.object(inst, "_finalize") as finalize:
+            inst.run()
+        return finalize
+
+    def test_run_skips_finalize_when_steps_remain(self, tmp_project):
+        inst = self._executor(tmp_project, 3, once=True)
+        self._run_with_stubs(inst, False).assert_not_called()
+
+    def test_run_finalizes_when_all_steps_done(self, tmp_project):
+        inst = self._executor(tmp_project, 3, once=True)
+        self._run_with_stubs(inst, True).assert_called_once()
+
+    def test_main_passes_once_flag(self, tmp_project):
+        with patch("sys.argv", ["execute.py", "0-mvp", "--once"]):
+            with patch.object(ex, "StepExecutor") as se:
+                ex.main()
+        assert se.call_args.kwargs["once"] is True
+
+    def test_main_defaults_once_to_false(self, tmp_project):
+        with patch("sys.argv", ["execute.py", "0-mvp"]):
+            with patch.object(ex, "StepExecutor") as se:
+                ex.main()
+        assert se.call_args.kwargs["once"] is False

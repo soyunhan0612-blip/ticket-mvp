@@ -9,12 +9,15 @@ src/
 │   ├── (viewer)/reservations/
 │   ├── seller/new/
 │   ├── admin/
-│   └── api/{shows,sessions,holds,reservations,ai}/
+│   ├── login/
+│   └── api/{shows,sessions,holds,reservations,ai,admin,auth}/
 ├── components/seat/                   # SeatMap, Seat, ZoomPanSvg, SelectionBar, HoldTimer
 ├── atoms/                             # Jotai atomFamily
+├── hooks/                             # Tanstack Query 훅 (use-seat-snapshot, use-hold-mutation …)
 ├── lib/                               # 순수 로직 (TDD 강제 구간)
 ├── services/                          # Store 인터페이스 + 구현체
-└── types/
+├── types/
+└── middleware.ts                      # 익명 userId 쿠키 발급 + /admin·/seller 게이트
 ```
 
 ## 렌더링 경계 (Day 1에 긋고 끝까지 유지)
@@ -33,7 +36,7 @@ src/
 ## 상태 관리
 
 ### 서버 상태 (Tanstack Query)
-- 공연 목록·상세는 RSC에서 prefetch → `HydrationBoundary`로 client 하이드레이트
+- 공연 목록·상세는 RSC에서 store를 직접 호출해 렌더한다. 클라이언트 쿼리가 없어 하이드레이트할 상태도 없다 — `HydrationBoundary`를 쓰는 곳은 좌석 페이지뿐이다
 - 좌석 스냅샷은 client에서 `refetchInterval: 3000`으로 폴링
 - 좌석 hold는 낙관적 업데이트 + 409 시 전체 롤백
 - `refetchIntervalInBackground: false` (기본값 유지) — 심사자가 탭을 열어둔 채 잊어버려도 호출이 나가지 않는다
@@ -59,6 +62,34 @@ POST /api/holds → SeatStore.hold (Lua atomic) → 낙관적 업데이트
 POST /api/reservations → ReservationStore.create → SeatStore.confirmSeats (원자적) + Reservation 레코드 생성
 ```
 
+도메인 소유 관계는 다음과 같다. `Session`은 `Show`에 속하고, 좌석은 **저장되지 않는다** — `Show.presetId`에서
+`generateSeatsForPreset`으로 매번 파생시킨다. 그래서 `Seat` 타입에 상태 필드가 없고, 점유 상태는 `SeatStore`가 따로 들고 있다.
+
+```
+Show ──┬─ presetId ──→ 좌석 배치 (파생, 저장 안 함)
+       └─ Session[] ──┬─ SeatStore   : 세션별 held/sold 스냅샷
+                      └─ Reservation : 확정된 예약 레코드
+```
+
+조회 경로는 예매 경로와 갈라진다. Admin 점유 현황은 다음처럼 흐른다.
+
+```
+GET /api/admin/stats?sessionId=…
+   ↓ ShowStore.getBySessionId       → 회차가 속한 공연과 presetId
+   ↓ SeatStore.getSnapshot          → held/sold만 담긴 sparse map
+   ↓ lib/seat-stats.computeSeatStats → total / available / held / sold
+
+GET /api/admin/operations?showId=…&date=…
+   ↓ ShowStore.list → get           → showId 필터 후 회차까지 재조회
+   ↓ SeatStore.getSnapshot          → date로 거른 회차마다 한 번
+   ↓ lib/operations.collectOperations → 회차별 행 + salesRate, startsAt 오름차순
+```
+
+**집계는 `src/lib/seat-stats.ts`의 순수 함수 한 곳에 있다.** 두 라우트가 같은
+`computeSeatStats`를 쓰고, `collectOperations`는 Store를 인자로 주입받아 I/O를 모른다.
+`getSnapshot`에 넘기는 `userId`가 빈 문자열인 것은 의도된 것이다 — 운영 집계에는
+소유권 구분이 필요 없고, `mine` 판정이 응답에 실릴 여지를 애초에 없앤다.
+
 ## Store 인터페이스
 
 route handler는 쿠키에서 `userId`를 읽어 넘긴다. 요청 바디·쿼리에서 절대 받지 않는다 (IDOR).
@@ -68,7 +99,7 @@ route handler는 쿠키에서 `userId`를 읽어 넘긴다. 요청 바디·쿼�
 //    요청 바디·쿼리에서 절대 받지 않는다 (IDOR).
 interface SeatStore {
   getSnapshot(sessionId, userId): Promise<SeatSnapshot>     // 폴링 대상. userId는 mine 판정용
-  hold(sessionId, seatIds, userId, ttlMs): Promise<HoldResult> // 충돌 시 409 + 충돌 좌석 목록
+  hold(sessionId, seatIds, userId): Promise<Hold | { conflict: string[] }> // 충돌 좌석이 하나라도 있으면 conflict만 돌려준다(부분 hold 없음). TTL은 lib/hold.ts의 HOLD_TTL_MS
   release(sessionId, seatIds, userId): Promise<void>        // held 해제. 소유자 불일치 시 403
   confirmSeats(sessionId, seatIds, userId): Promise<void>   // held→sold. 소유자 불일치 403. 예약 생성은 ReservationStore
   releaseSold(sessionId, seatIds, userId): Promise<void>    // sold→available. 소유자 불일치 403. cancel 경로 전용 (방어 심층화)
@@ -78,7 +109,8 @@ interface SeatStore {
 interface ShowStore {   // create는 공연 + 회차 + 좌석 프리셋을 함께 생성
   list(): Promise<Show[]>                                    // mock 시드 + 셀러 등록분
   get(id): Promise<{ show: Show; sessions: Session[] } | null>
-  create(input): Promise<{ show: Show; sessions: Session[] }>
+  getBySessionId(sessionId): Promise<{ show: Show; session: Session } | null> // 회차 → 공연 역참조
+  create(input: unknown): Promise<{ show: Show; sessions: Session[] }>        // 구현체가 zod로 파싱
 }
 
 interface ReservationStore {
@@ -101,16 +133,16 @@ interface ReservationStore {
 Key:   session:{sessionId}:seats
 Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
-스냅샷 조회 → HGETALL          1요청
+스냅샷 조회 → HGETALL + version GET   2요청 (ADR-004 참조)
 좌석 잡기   → Lua 스크립트      1요청 (선택 좌석 전체 성공 또는 전체 실패)
 좌석 놓기   → 소유권을 검사하는 Lua 스크립트
 ```
 
 **만료는 Redis TTL이 아니라 `expiresAt` 필드로 판정**. 만료된 필드가 Hash에 남은 상태에서 `HSETNX`를 호출하면 좌석을 다시 잡을 수 없으므로 단순한 lazy expiration만 사용하지 않는다. **hold Lua 스크립트 안에서 대상 좌석의 만료 여부를 확인하고 만료 필드를 제거한 뒤, 모든 좌석이 가능한 경우에만 한꺼번에 hold한다.** 하나라도 충돌하면 아무 좌석도 변경하지 않고 충돌 좌석 목록을 반환한다. `lib/hold.ts`의 만료 판정 규칙은 인메모리 구현과 Redis 스크립트 테스트에서 동일하게 검증한다.
 
-`confirm`과 `cancel`도 중간 상태를 남기지 않도록 원자적으로 처리:
-- **create(=confirm)**: 좌석 상태 스냅샷 백업 → `SeatStore.confirmSeats`로 held→sold → Reservation 레코드 생성 → 실패 시 `SeatStore.revertSold`로 롤백. Redis는 두 자료구조를 함께 갱신하는 단일 Lua 스크립트로 대체
-- **cancel**: 예약 소유권·상태 확인 → `SeatStore.releaseSold`로 sold→available (소유권 재검증) → 예약을 cancelled로 변경. Redis는 단일 Lua 스크립트로 처리
+`confirm`과 `cancel`은 **좌석 전환과 예약 레코드를 별개 연산으로** 처리한다. 좌석 전환 자체에는 부분 확정·부분 해제가 없고(Redis는 Lua), 그 뒤 레코드 쓰기가 실패하면 보상 롤백으로 되돌린다. 이 배치가 남기는 잔여 실패 창은 ADR-004a에 표로 기록돼 있다:
+- **create(=confirm)**: `SeatStore.confirmSeats`로 held→sold → Reservation 레코드 생성 → 실패 시 `SeatStore.revertSold`로 롤백. Redis는 레코드와 유저 인덱스를 하나의 Lua로 함께 쓰지만, 좌석 전환은 그 앞의 별개 호출이다
+- **cancel**: 예약 소유권·상태 확인 → `SeatStore.releaseSold`로 sold→available (소유권 재검증) → 예약을 cancelled로 변경. 레코드 갱신은 `hset` 한 번이며 좌석 전환과 묶이지 않는다
 - hold/release/confirmSeats/releaseSold/revertSold/cancel/만료 정리 시 세션 `version` 증가
 
 ## 폴링 페이로드 — 점유된 좌석만 보낸다
@@ -150,15 +182,23 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 ### 쿠키
 `httpOnly` + `sameSite: 'lax'` + `secure`(프로덕션). 클라이언트 JS가 읽을 일이 없으니 손해가 없고, XSS가 나도 세션을 못 훔친다.
 
+익명 `userId`는 미들웨어의 `withUserIdCookie`가 발급하는데 **응답에만 실린다** — 같은 요청의 route handler는 아직 그 쿠키를 보지 못한다. 브라우저는 다음 요청부터 쿠키를 되돌려주므로 문제가 없지만, 쿠키를 보관하지 않고 `Authorization: Basic`만 보내는 호출자(스케줄러·`curl`)는 `getUserIdFromRequest`를 쓰는 라우트에서 매번 401을 맞는다. 기계 호출을 받을 엔드포인트는 신원 확인을 미들웨어 게이트에 맡기고 쿠키 검사를 두지 않는다 (ADR-007).
+
 ### AI 엔드포인트
-공개 URL이므로 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 입력 길이 상한(공연명 100자 등), 사용자 입력은 구분자로 감싸 프롬프트 인젝션 완화. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+둘의 노출도가 다르다. `/api/ai/description`은 게이트 밖이라 **무인증 공개**이고, `/api/admin/ai-summary`는 `/api/admin` 이하라 미들웨어 게이트 뒤에 있다. 새 AI 라우트를 만들 때 기본은 후자다 — 운영 데이터를 다루면서 전자의 배치를 복제하면 매출·재고가 그대로 공개된다.
+
+두 라우트에 공통으로 거는 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit, 모델은 **Haiku 4.5**. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+
+**감싸기만으로는 부족하다.** 감싸는 값이 구분자 자체를 담고 있으면 블록이 조기에 닫히고 뒤따르는 문장이 신뢰 영역에 놓인다. 그래서 `lib/ai-prompt.ts`가 감싸기 전에 `=` 연속을 하나로 접고 개행을 접은 뒤 100자로 자른다. 구분자 리터럴을 *지우는* 방식은 `===USER_INPUT_===USER_INPUT_END===END===`처럼 겹쳐 심으면 제거 후 구분자가 되살아나므로 쓰지 않는다. 운영 요약(`/api/admin/ai-summary`)에서 특히 중요하다 — 그 프롬프트에 들어가는 공연 제목은 요약을 읽는 관리자가 아니라 **셀러가 입력한 값**이라, 여기서 뚫리면 관리자가 조작된 운영 보고를 읽는다.
 
 ### /admin·/seller
 middleware 인증. 환경변수 계정 1개, README에 심사자용 계정 명시.
 
 자격증명은 `POST /api/auth/login`이 대조하고 HTTP-only 쿠키(`SameSite=Lax`, 12시간)로 발급한다. 미들웨어는 그 쿠키를 `lib/basic-auth.ts`의 `verifyBasicAuthCookie`로 검증하며, **`WWW-Authenticate` 헤더는 보내지 않는다** — 그 헤더가 브라우저 네이티브 로그인 프롬프트를 띄우는 유일한 원인이라 자체 모달로 바꾸려면 없애야 했다. `Authorization: Basic` 헤더 검증은 남아 있어 심사자용 `curl -u`가 그대로 동작하고, 헤더를 광고하지 않으므로 프롬프트는 뜨지 않는다.
 
-미인증 응답은 두 갈래다. `/api/admin` 이하는 401 JSON, 나머지 보호 경로는 `/login`으로 **리라이트**한다(리다이렉트가 아니다). 주소창이 원래 경로로 남으므로 로그인 후 `router.refresh()` 한 번이면 같은 URL에서 실제 화면이 렌더되고, 되돌아갈 경로를 쿼리로 실어 나르지 않으니 오픈 리다이렉트 경로도 생기지 않는다.
+보호 경로는 경로만으로 정해지지 않는다. `/api/shows`는 GET이 공개 공연 목록이지만 POST는 셀러 등록이므로, `isProtectedPath(pathname, method)`가 **메서드까지 보고** 쓰기만 게이트한다. 라우트 안의 `userId` 쿠키 검사는 관문이 될 수 없다 — 미들웨어가 모든 방문자에게 익명 UUID를 발급하므로 아무도 걸러내지 못한다. 화면(`/seller/new`)만 게이트 뒤에 두고 그 화면이 부르는 API를 밖에 두면 게이트가 없는 것과 같다.
+
+미인증 응답은 두 갈래다. `/api/admin` 이하와 게이트된 쓰기 API는 401 JSON, 나머지 보호 경로는 `/login`으로 **리라이트**한다(리다이렉트가 아니다). 주소창이 원래 경로로 남으므로 로그인 후 `router.refresh()` 한 번이면 같은 URL에서 실제 화면이 렌더되고, 되돌아갈 경로를 쿼리로 실어 나르지 않으니 오픈 리다이렉트 경로도 생기지 않는다.
 
 자격증명이 비어 있으면 열리는 방향이 아니라 닫히는 방향으로 실패한다 — 쿠키 경로도 `verifyBasicAuth`에 위임하므로 이 규칙이 한 곳에만 있다.
 

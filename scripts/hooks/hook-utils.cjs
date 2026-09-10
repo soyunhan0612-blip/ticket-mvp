@@ -113,8 +113,8 @@ function findCompatibleNodeDirectory({
   probeVersion = (executable) => spawnSync(executable, ["--version"], { encoding: "utf8" }).stdout,
 }) {
   const windows = platform === "win32";
-  const pathApi = windows ? path.win32 : path;
-  const delimiter = windows ? ";" : path.delimiter;
+  const pathApi = windows ? path.win32 : path.posix;
+  const delimiter = windows ? ";" : ":";
   const nodeName = windows ? "node.exe" : "node";
   const npmName = windows ? "npm.cmd" : "npm";
   const directories = [...new Set(String(pathValue || "").split(delimiter).filter(Boolean))];
