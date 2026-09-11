@@ -5,7 +5,9 @@
     {
       "step": 0,
       "name": "sellout-alert",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-11T09:05:51+0900",
+      "summary": "src/lib/sellout-alert.ts에 SELLOUT_RISK_THRESHOLD(90), SELLOUT_ALERT_TITLE_MAX_LENGTH(80), selectSelloutRiskRows, buildSelloutAlertText를 추가"
     },
     {
       "step": 1,
@@ -17,5 +19,6 @@
       "name": "n8n-workflow",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-09-11T09:05:51+0900"
 }
