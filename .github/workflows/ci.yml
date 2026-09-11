@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       # packageManager 필드의 버전을 그대로 설치한다. setup-node의 pnpm 캐시가
       # pnpm 바이너리를 먼저 요구하므로 순서를 바꾸면 캐시 단계가 실패한다.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
