@@ -7,7 +7,8 @@
       "name": "sellout-alert",
       "status": "completed",
       "started_at": "2026-09-11T09:05:51+0900",
-      "summary": "src/lib/sellout-alert.ts에 SELLOUT_RISK_THRESHOLD(90), SELLOUT_ALERT_TITLE_MAX_LENGTH(80), selectSelloutRiskRows, buildSelloutAlertText를 추가"
+      "summary": "src/lib/sellout-alert.ts에 SELLOUT_RISK_THRESHOLD(90), SELLOUT_ALERT_TITLE_MAX_LENGTH(80), selectSelloutRiskRows, buildSelloutAlertText를 추가",
+      "completed_at": "2026-09-11T09:14:41+0900"
     },
     {
       "step": 1,
