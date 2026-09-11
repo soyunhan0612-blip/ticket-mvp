@@ -16,7 +16,7 @@
       "status": "completed",
       "started_at": "2026-09-11T09:19:54+0900",
       "summary": "GET /api/admin/alerts/sellout: threshold?(숫자 0~100, 기본값 SELLOUT_RISK_THRESHOLD=90), showId?(영숫자·_·-), date?(ISO 날짜); 응답 키 threshold, sessions, text",
-      "completed_at": "2026-09-11T09:26:09+0900"
+      "completed_at": "2026-09-11T09:26:57+0900"
     },
     {
       "step": 2,
