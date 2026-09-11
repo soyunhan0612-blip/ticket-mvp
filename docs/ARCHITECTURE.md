@@ -89,6 +89,11 @@ POST /api/admin/agent   { question, showId?, date? }
    ↓ toolRunner(Opus)               → list_shows / list_operations 중 스스로 선택
    ↓ lib/ops-agent-tools            → 같은 collectOperations를 호출
    ↓ text/plain 스트림              → 키가 없으면 200 + 서버 집계 폴백
+
+n8n Schedule (5분)
+   ↓ GET /api/admin/alerts/sellout  → Basic 게이트
+   ↓ lib/operations.collectOperations → lib/sellout-alert 판정·문구 생성
+   ↓ IF text.length > 0             → Slack Webhook
 ```
 
 **집계는 `src/lib/seat-stats.ts`의 순수 함수 한 곳에 있다.** 운영 라우트는

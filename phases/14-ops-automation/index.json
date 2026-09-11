@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "n8n-workflow",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-11T15:48:10+0900",
+      "summary": "ops/n8n/sellout-alert.workflow.json·README.md에 Schedule Trigger→Basic 인증 HTTP Request→text 길이 IF→Slack Webhook 4노드와 재현 절차를 추가; 사용자는 n8n에서 import 후 BASE_URL·Basic credential·Slack Webhook을 설정·수동 검증해야 함",
+      "completed_at": "2026-09-11T15:57:54+0900"
     }
   ],
   "created_at": "2026-09-11T09:05:51+0900"
