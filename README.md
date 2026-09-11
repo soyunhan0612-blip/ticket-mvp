@@ -50,7 +50,7 @@ curl -u '<user>:<pass>' -b 'userId=local-check' \
 - **TypeScript strict · Tailwind CSS** — 도메인 계약을 타입으로 고정하고, 정해진 UI 토큰 안에서 화면을 구성합니다. 색·타입·간격·라디우스는 `globals.css`의 CSS 변수 한 곳에 모으고 Tailwind가 그것을 참조하므로, 브랜드 교체가 토큰 블록 하나로 끝납니다.
 - **TanStack Query** — 좌석 스냅샷을 3초마다 폴링하고 hold 요청을 낙관적으로 반영한 뒤, 충돌 시 선택 묶음 전체를 롤백합니다.
 - **Jotai** — `atomFamily(seatId)`로 2,000개 좌석의 구독을 분리하고 실제 변경된 좌석만 갱신합니다.
-- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 59개 파일 · 553개 테스트가 CI에서 lint·build와 함께 돕니다.
+- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 61개 파일 · 576개 테스트가 CI에서 lint·build와 함께 돕니다.
 - **Upstash Redis** — 공연·회차·좌석·예약을 영속화합니다. 좌석 상태는 회차별 sparse Hash에 저장하고 다중 좌석 전환은 Lua로 처리합니다.
 - **Zod** — 셀러 등록·AI 요청 등 외부에서 들어오는 본문을 route handler 입구에서 파싱합니다. 타입 단언으로 넘기지 않습니다.
 - **Embla Carousel** — 랜딩 히어로 슬라이드에만 씁니다. 직접 구현 대신 도입한 이유는 [ADR-006](docs/ADR.md#adr-006-랜딩-히어로-캐러셀에-embla-도입-직접-구현-대신)에 있습니다.
@@ -84,8 +84,9 @@ TanStack Query와 Jotai는 목록에 스택을 더하기 위해 선택한 것이
 | 11 성능 계측 | 완료 (초기 마운트 제외) | 렌더 카운터와 before/after 계측 테스트로 리렌더 수를 실측, 수동 측정 절차를 [Perf Measurement](docs/PERF_MEASUREMENT.md)에 문서화 |
 | 12 AI 운영 조회 | 완료 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
 | 13 운영 Agent | 완료 | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |
+| 14 운영 자동화 | 완료 | 판매율 임계값(기본 90%) 판정을 `src/lib/sellout-alert.ts` 순수 함수로 분리, 기존 Basic 게이트 아래의 `GET /api/admin/alerts/sellout`이 대상 회차와 알림 문구(`text`)까지 만들어 응답, n8n 4노드 워크플로 export와 재현 절차를 [`ops/n8n/`](ops/n8n/)에 커밋 |
 
-세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~12는 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
+세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~14는 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
 
 ## 성능 before / after
 
@@ -166,7 +167,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm dev` | 개발 서버 |
 | `pnpm build` | 프로덕션 빌드 (배포 직전 수동) |
 | `pnpm lint` | ESLint |
-| `pnpm test` | Vitest 전체 테스트 (59개 파일 · 553개 테스트) |
+| `pnpm test` | Vitest 전체 테스트 (61개 파일 · 576개 테스트) |
 | `pnpm test:watch` | Vitest 워치 모드 |
 
 ## 데이터 영속성

@@ -82,7 +82,7 @@ n8n은 `BASIC_AUTH_USER` / `BASIC_AUTH_PASS`로 `Authorization: Basic` 헤더를
 - `ANTHROPIC_API_KEY`는 서버 전용이다. AI 키·Upstash 토큰·Slack Webhook에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다
 - Slack Webhook URL은 저장소가 아니라 n8n 자격증명에 둔다
 - AI 요약과 Agent 답변은 **plain text + `whitespace-pre-wrap`** 으로 렌더한다. `dangerouslySetInnerHTML`을 쓰지 않는다
-- 기존 AI 라우트처럼 레이트리밋과 `max_tokens` 상한을 둔다
+- 모델을 호출하는 AI 라우트에는 기존 라우트처럼 레이트리밋과 `max_tokens` 상한을 둔다. 모델을 부르지 않는 운영 라우트는 대상이 아니다 (ADR-007)
 
 ## Operations API 계약
 

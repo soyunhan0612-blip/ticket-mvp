@@ -89,6 +89,11 @@ POST /api/admin/agent   { question, showId?, date? }
    ↓ toolRunner(Opus)               → list_shows / list_operations 중 스스로 선택
    ↓ lib/ops-agent-tools            → 같은 collectOperations를 호출
    ↓ text/plain 스트림              → 키가 없으면 200 + 서버 집계 폴백
+
+n8n Schedule (5분)
+   ↓ GET /api/admin/alerts/sellout  → Basic 게이트
+   ↓ lib/operations.collectOperations → lib/sellout-alert 판정·문구 생성
+   ↓ IF text.length > 0             → Slack Webhook
 ```
 
 **집계는 `src/lib/seat-stats.ts`의 순수 함수 한 곳에 있다.** 운영 라우트는
@@ -195,7 +200,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 ### AI 엔드포인트
 셋의 노출도가 다르다. `/api/ai/description`은 게이트 밖이라 **무인증 공개**이고, `/api/admin/ai-summary`와 `/api/admin/agent`는 `/api/admin` 이하라 미들웨어 게이트 뒤에 있다. 새 AI 라우트를 만들 때 기본은 후자다 — 운영 데이터를 다루면서 전자의 배치를 복제하면 매출·재고가 그대로 공개된다.
 
-세 라우트에 공통으로 거는 최소 방어: `max_tokens` 600 상한, IP당 분당 3회 rate limit. 모델은 **Haiku 4.5**이고, 무엇을 조회할지 스스로 골라야 하는 `/api/admin/agent`만 **Opus 5**다 (ADR-007). 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+세 라우트에 공통으로 거는 최소 방어: IP당 분당 3회 rate limit. `max_tokens` 상한은 설명·요약이 600(`AI_MAX_TOKENS`)이고, Tool 루프를 도는 `/api/admin/agent`만 2000(`AGENT_MAX_TOKENS`)이다. 모델은 **Haiku 4.5**이고, 무엇을 조회할지 스스로 골라야 하는 `/api/admin/agent`만 **Opus 5**다 (ADR-007). 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 
 **감싸기만으로는 부족하다.** 감싸는 값이 구분자 자체를 담고 있으면 블록이 조기에 닫히고 뒤따르는 문장이 신뢰 영역에 놓인다. 그래서 `lib/ai-prompt.ts`가 감싸기 전에 `=` 연속을 하나로 접고 개행을 접은 뒤 100자로 자른다. 구분자 리터럴을 *지우는* 방식은 `===USER_INPUT_===USER_INPUT_END===END===`처럼 겹쳐 심으면 제거 후 구분자가 되살아나므로 쓰지 않는다. 운영 요약(`/api/admin/ai-summary`)에서 특히 중요하다 — 그 프롬프트에 들어가는 공연 제목은 요약을 읽는 관리자가 아니라 **셀러가 입력한 값**이라, 여기서 뚫리면 관리자가 조작된 운영 보고를 읽는다.
 

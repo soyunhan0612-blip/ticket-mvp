@@ -5,17 +5,28 @@
     {
       "step": 0,
       "name": "sellout-alert",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-11T09:05:51+0900",
+      "summary": "src/lib/sellout-alert.ts에 SELLOUT_RISK_THRESHOLD(90), SELLOUT_ALERT_TITLE_MAX_LENGTH(80), selectSelloutRiskRows, buildSelloutAlertText를 추가",
+      "completed_at": "2026-09-11T09:14:41+0900"
     },
     {
       "step": 1,
       "name": "alerts-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-11T09:19:54+0900",
+      "summary": "GET /api/admin/alerts/sellout: threshold?(숫자 0~100, 기본값 SELLOUT_RISK_THRESHOLD=90), showId?(영숫자·_·-), date?(ISO 날짜); 응답 키 threshold, sessions, text",
+      "completed_at": "2026-09-11T09:26:57+0900"
     },
     {
       "step": 2,
       "name": "n8n-workflow",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-09-11T15:48:10+0900",
+      "summary": "ops/n8n/sellout-alert.workflow.json·README.md에 Schedule Trigger→Basic 인증 HTTP Request→text 길이 IF→Slack Webhook 4노드와 재현 절차를 추가; 사용자는 n8n에서 import 후 BASE_URL·Basic credential·Slack Webhook을 설정·수동 검증해야 함",
+      "completed_at": "2026-09-11T15:59:29+0900"
     }
-  ]
+  ],
+  "created_at": "2026-09-11T09:05:51+0900",
+  "completed_at": "2026-09-11T15:59:30+0900"
 }
