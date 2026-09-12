@@ -49,13 +49,26 @@ Agent Tool은 **집계를 스스로 하지 않는다.** 주입받은 읽기 Stor
 
 쓰기 Agent는 이번 범위 밖이다. 하게 된다면 사용자 승인 → 권한 확인 → 실행 → 감사 로그가 선행돼야 하며, 별도 ADR을 남긴다.
 
+### 관람객 챗봇(phase 15~16)의 예외
+
+위 경계는 **운영 Agent**(`/api/admin/agent`)를 전제로 쓰였다. phase 15가 더하는 관람객 챗봇은 대상과 노출도가 달라 세 곳에서 예외가 필요하다. 근거와 트레이드오프는 `docs/ADR.md`의 ADR-008에 있다.
+
+**도메인 데이터는 여전히 조회 전용이다.** 좌석 hold/release, 예약 생성·확정·취소, 공연 등록·삭제는 그대로 금지이고 쓰기 API 미참조 테스트도 그대로 적용한다.
+
+1. **부작용 툴 하나를 허용한다** — `escalate_to_human`. 슬랙에 메시지를 올리고 대화에 대기 상태를 세우는 것이 부작용의 전부다. 좌석·예약 상태를 건드리지 않으므로 "왜 이 좌석이 풀렸는가"를 사후에 설명할 수 없게 만드는 종류의 쓰기가 아니다. 조건 셋을 만족해야 한다.
+   - 조회 툴과 **다른 파일**에 둔다. 조회 툴 파일이 부작용을 갖지 않는다는 테스트를 느슨하게 만들지 않기 위해서다
+   - 그 파일도 쓰기 API 미참조 테스트를 따로 받는다. 허용되는 것은 슬랙 전송과 대화 저장소의 에스컬레이션 메서드뿐이다
+   - 대화당 1회. 저장소가 불변식을 지킨다
+2. **본인 예약은 개별 레코드를 낼 수 있다** — 아래 "응답에 남의 `userId`를 싣지 않는다"의 예외다. 쿠키에서 읽은 `userId`로 조회한 자기 예약에 한하고 `userId` 필드는 제거한다. 집계 수치만으로는 "내 예매 뭐 있지"에 답할 수 없다
+3. **관람객 조회 라우트는 게이트 밖에 둔다** — 아래 "엔드포인트 배치"의 예외다. `/api/chat`은 익명 손님이 쓰는 창구라 `/api/admin/**` 아래로 가면 Basic 게이트에 막힌다. 내보내는 범위는 **좌석 화면이 이미 공개하는 것**(공연·회차·잔여석)으로 한정하고 매출·판매율 같은 운영 수치는 넣지 않는다
+
 ## 보안 규약
 
 `scripts/execute.py`의 가드레일은 `AGENTS.md`와 `docs/*.md`만 싣는다(`GUARDRAIL_DOC_EXCLUDE` 제외). `CLAUDE.md`는 실리지 않으므로, AI 확장에 관한 경계는 **여기가 유일한 전달 경로**다.
 
 ### 엔드포인트 배치
 
-운영 데이터를 다루는 모든 엔드포인트는 `/api/admin/**` 아래에 둔다. 미들웨어의 `isProtectedApiPath`가 게이트하는 것은 `/api/admin` 이하와 `/api/shows`의 쓰기 메서드뿐이고, 기존 `/api/ai/description`은 그 바깥이라 **무인증 공개**다(레이트리밋만 있다). 그 배치를 복제하면 매출·재고가 그대로 공개된다.
+운영 데이터를 다루는 모든 엔드포인트는 `/api/admin/**` 아래에 둔다. 미들웨어의 `isProtectedApiPath`가 게이트하는 것은 `/api/admin` 이하와 `/api/shows`의 쓰기 메서드뿐이고, 기존 `/api/ai/description`은 그 바깥이라 **무인증 공개**다(레이트리밋만 있다). 그 배치를 복제하면 매출·재고가 그대로 공개된다. 예외는 위 "관람객 챗봇의 예외" 3번 하나뿐이다 — 관람객 대상 조회는 게이트 밖에 두되 좌석 화면이 이미 공개하는 범위만 낸다.
 
 ### `userId` 쿠키를 요구하지 않는다
 
@@ -71,7 +84,7 @@ n8n은 `BASIC_AUTH_USER` / `BASIC_AUTH_PASS`로 `Authorization: Basic` 헤더를
 
 ### 응답에 남의 `userId`를 싣지 않는다
 
-예약은 **집계 수치만** 내보낸다. 개별 예약 레코드를 Operations 응답이나 Agent Tool 결과에 넣지 않는다. 기존 라우트가 `sanitizeReservation`으로 지키고 있는 경계와 같다.
+예약은 **집계 수치만** 내보낸다. 개별 예약 레코드를 Operations 응답이나 Agent Tool 결과에 넣지 않는다. 기존 라우트가 `sanitizeReservation`으로 지키고 있는 경계와 같다. 예외는 위 "관람객 챗봇의 예외" 2번 — 쿠키로 신원이 확인된 **본인** 예약에 한해 개별 레코드를 낼 수 있고, 그때도 `userId`는 제거한다.
 
 ### 프롬프트 인젝션
 
@@ -81,6 +94,7 @@ n8n은 `BASIC_AUTH_USER` / `BASIC_AUTH_PASS`로 `Authorization: Basic` 헤더를
 
 - `ANTHROPIC_API_KEY`는 서버 전용이다. AI 키·Upstash 토큰·Slack Webhook에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다
 - Slack Webhook URL은 저장소가 아니라 n8n 자격증명에 둔다
+- 관람객 챗봇의 슬랙 연동은 Webhook이 아니라 **봇 토큰**을 쓴다. Webhook은 보낸 메시지의 `ts`를 돌려주지 않아 상담원 답장을 어느 대화에 붙일지 알 수 없기 때문이다. `SLACK_BOT_TOKEN`·`SLACK_SIGNING_SECRET`·`SLACK_CHANNEL_ID`는 앱의 서버 환경변수에 둔다 (`NEXT_PUBLIC_` 금지)
 - AI 요약과 Agent 답변은 **plain text + `whitespace-pre-wrap`** 으로 렌더한다. `dangerouslySetInnerHTML`을 쓰지 않는다
 - 모델을 호출하는 AI 라우트에는 기존 라우트처럼 레이트리밋과 `max_tokens` 상한을 둔다. 모델을 부르지 않는 운영 라우트는 대상이 아니다 (ADR-007)
 
@@ -118,6 +132,8 @@ n8n은 `BASIC_AUTH_USER` / `BASIC_AUTH_PASS`로 `Authorization: Basic` 헤더를
 | `12-ai-operations` | 좌석 집계를 `src/lib/`의 순수 함수로 추출 → Operations API → AI 운영 요약 |
 | `13-ops-agent` | Agent Tool 레지스트리(쓰기 API 미참조 테스트 포함) → Ticket Operations Agent → Admin Agent UI |
 | `14-ops-automation` | n8n 매진 임박 알림 + 워크플로 export 커밋 |
+| `15-chatbot` | 이식 가능한 대화 엔진(`src/chatbot/`) → 대화 저장소 → 조회 툴 → `/api/chat` → 위젯 |
+| `16-chat-handoff` | 슬랙 서명 검증 → 봇 전송 → 1분 자동 응답 판정 → 상담원 답장 콜백 |
 
 현재 데이터 흐름은 `docs/ARCHITECTURE.md`가 최종 기준이다. 그 문서를 먼저 읽고 시작한다.
 
