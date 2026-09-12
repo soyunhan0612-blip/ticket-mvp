@@ -5,7 +5,9 @@
     {
       "step": 0,
       "name": "tdd-guard-chatbot",
-      "status": "pending"
+      "status": "completed",
+      "summary": "src/chatbot/core/와 src/chatbot/adapters/를 TDD 가드 대상에 추가하고 src/chatbot/ui/는 제외했다.",
+      "started_at": "2026-09-12T13:01:11+0900"
     },
     {
       "step": 1,
@@ -47,5 +49,6 @@
       "name": "chat-ui",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-09-12T13:01:11+0900"
 }

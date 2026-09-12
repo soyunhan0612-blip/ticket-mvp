@@ -70,7 +70,12 @@ function requiresTest(filePath) {
   const lowered = filePath.toLowerCase();
   if (!SOURCE_SUFFIXES.some((suffix) => lowered.endsWith(suffix))) return false;
   if (TEST_MARKERS.some((marker) => lowered.includes(marker))) return false;
-  if (lowered.startsWith("src/lib/") || lowered.startsWith("src/services/")) return true;
+  if ([
+    "src/lib/",
+    "src/services/",
+    "src/chatbot/core/",
+    "src/chatbot/adapters/",
+  ].some((prefix) => lowered.startsWith(prefix))) return true;
   return /^src\/app\/api\/.+\/route\.(?:ts|tsx|js|jsx)$/.test(lowered);
 }
 
