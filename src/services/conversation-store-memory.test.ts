@@ -153,4 +153,212 @@ describe("ConversationStore memory", () => {
     vi.advanceTimersByTime(1);
     await expect(store.get(conversation.id, "ttl-user")).rejects.toThrow("NOT_FOUND");
   });
+
+  it("rejects a second escalation while the first is unanswered", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("escalation-user");
+
+    await store.startEscalation(
+      conversation.id,
+      "escalation-user",
+      "1757635200.000001",
+      NOW.getTime(),
+    );
+
+    await expect(store.startEscalation(
+      conversation.id,
+      "escalation-user",
+      "1757635201.000002",
+      NOW.getTime() + 1,
+    )).rejects.toThrow(
+      `ESCALATION_IN_PROGRESS: conversation ${conversation.id}`,
+    );
+  });
+
+  it("rejects an invalid Slack thread timestamp", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("invalid-thread-user");
+
+    await expect(store.startEscalation(
+      conversation.id,
+      "invalid-thread-user",
+      "1757635200:not-a-thread",
+      NOW.getTime(),
+    )).rejects.toThrow("INVALID_SLACK_THREAD_TS");
+  });
+
+  it("marks the automatic reply with compare-and-set semantics", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("auto-reply-user");
+    await store.startEscalation(
+      conversation.id,
+      "auto-reply-user",
+      "1757635202.000003",
+      NOW.getTime(),
+    );
+
+    await expect(store.markAutoReplySent(
+      conversation.id,
+      "auto-reply-user",
+      NOW.getTime() + 60_000,
+    )).resolves.toBe(true);
+    await expect(store.markAutoReplySent(
+      conversation.id,
+      "auto-reply-user",
+      NOW.getTime() + 60_001,
+    )).resolves.toBe(false);
+
+    const persisted = await store.get(conversation.id, "auto-reply-user");
+    expect(persisted.escalation?.autoReplySentAt).toBe(NOW.getTime() + 60_000);
+  });
+
+  it("does not mark an automatic reply after an operator has answered", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("answered-user");
+    const threadTs = "1757635203.000004";
+    await store.startEscalation(
+      conversation.id,
+      "answered-user",
+      threadTs,
+      NOW.getTime(),
+    );
+    await store.appendOperatorReply(
+      threadTs,
+      "operator answer",
+      "event-answered",
+      NOW.getTime() + 30_000,
+    );
+
+    await expect(store.markAutoReplySent(
+      conversation.id,
+      "answered-user",
+      NOW.getTime() + 60_000,
+    )).resolves.toBe(false);
+  });
+
+  it("appends a Slack event only once", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("idempotent-user");
+    const threadTs = "1757635204.000005";
+    await store.startEscalation(
+      conversation.id,
+      "idempotent-user",
+      threadTs,
+      NOW.getTime(),
+    );
+
+    await expect(store.appendOperatorReply(
+      threadTs,
+      "single answer",
+      "event-idempotent",
+      NOW.getTime() + 10_000,
+    )).resolves.not.toBeNull();
+    await expect(store.appendOperatorReply(
+      threadTs,
+      "duplicate answer",
+      "event-idempotent",
+      NOW.getTime() + 10_001,
+    )).resolves.toBeNull();
+
+    const persisted = await store.get(conversation.id, "idempotent-user");
+    expect(persisted.turns).toHaveLength(1);
+    expect(persisted.turns[0]?.content).toBe("single answer");
+  });
+
+  it("returns null for an unknown Slack thread", async () => {
+    const store = createConversationStoreMemory();
+
+    await expect(store.appendOperatorReply(
+      "1757635205.000006",
+      "orphan answer",
+      "event-orphan",
+      NOW.getTime(),
+    )).resolves.toBeNull();
+  });
+
+  it("sets answeredAt when appending the first operator reply", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("answer-time-user");
+    const threadTs = "1757635206.000007";
+    await store.startEscalation(
+      conversation.id,
+      "answer-time-user",
+      threadTs,
+      NOW.getTime(),
+    );
+
+    const answered = await store.appendOperatorReply(
+      threadTs,
+      "first answer",
+      "event-answer-time",
+      NOW.getTime() + 20_000,
+    );
+
+    expect(answered?.escalation?.answeredAt).toBe(NOW.getTime() + 20_000);
+  });
+
+  it("persists operator turns for owned reads", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("operator-turn-user");
+    const threadTs = "1757635207.000008";
+    await store.startEscalation(
+      conversation.id,
+      "operator-turn-user",
+      threadTs,
+      NOW.getTime(),
+    );
+    await store.appendOperatorReply(
+      threadTs,
+      "persisted operator answer",
+      "event-operator-turn",
+      NOW.getTime() + 40_000,
+    );
+
+    const persisted = await store.get(conversation.id, "operator-turn-user");
+    expect(persisted.turns).toContainEqual({
+      id: expect.any(String),
+      role: "operator",
+      content: "persisted operator answer",
+      createdAt: NOW.getTime() + 40_000,
+    });
+  });
+
+  it("ignores a stale Slack thread after a new escalation starts", async () => {
+    const store = createConversationStoreMemory();
+    const conversation = await store.create("re-escalation-user");
+    const previousThreadTs = "1757635208.000009";
+    const currentThreadTs = "1757635209.000010";
+    await store.startEscalation(
+      conversation.id,
+      "re-escalation-user",
+      previousThreadTs,
+      NOW.getTime(),
+    );
+    await store.appendOperatorReply(
+      previousThreadTs,
+      "first escalation answer",
+      "event-first-escalation",
+      NOW.getTime() + 10_000,
+    );
+    await store.startEscalation(
+      conversation.id,
+      "re-escalation-user",
+      currentThreadTs,
+      NOW.getTime() + 20_000,
+    );
+
+    await expect(store.appendOperatorReply(
+      previousThreadTs,
+      "late answer on stale thread",
+      "event-stale-thread",
+      NOW.getTime() + 30_000,
+    )).resolves.toBeNull();
+    await expect(store.get(conversation.id, "re-escalation-user"))
+      .resolves.toMatchObject({
+        escalation: {
+          slackThreadTs: currentThreadTs,
+          answeredAt: null,
+        },
+      });
+  });
 });

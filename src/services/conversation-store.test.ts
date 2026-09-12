@@ -13,6 +13,9 @@ it("defines the conversation store contract", () => {
   expectTypeOf<ConversationStore>().toHaveProperty("create");
   expectTypeOf<ConversationStore>().toHaveProperty("get");
   expectTypeOf<ConversationStore>().toHaveProperty("appendTurns");
+  expectTypeOf<ConversationStore>().toHaveProperty("startEscalation");
+  expectTypeOf<ConversationStore>().toHaveProperty("markAutoReplySent");
+  expectTypeOf<ConversationStore>().toHaveProperty("appendOperatorReply");
   expectTypeOf<NewChatTurn>().toHaveProperty("role");
   expectTypeOf<NewChatTurn>().toHaveProperty("content");
 });

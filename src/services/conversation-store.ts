@@ -17,4 +17,21 @@ export interface ConversationStore {
     userId: string,
     turns: NewChatTurn[],
   ): Promise<Conversation>;
+  startEscalation(
+    conversationId: string,
+    userId: string,
+    slackThreadTs: string,
+    now: number,
+  ): Promise<Conversation>;
+  markAutoReplySent(
+    conversationId: string,
+    userId: string,
+    now: number,
+  ): Promise<boolean>;
+  appendOperatorReply(
+    slackThreadTs: string,
+    content: string,
+    eventId: string,
+    now: number,
+  ): Promise<Conversation | null>;
 }

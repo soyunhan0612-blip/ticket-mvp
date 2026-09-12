@@ -14,6 +14,9 @@ const globalForConversationStore = globalThis as typeof globalThis & {
   conversationStoreMemory?: ConversationStore;
 };
 
+const SLACK_THREAD_TS_PATTERN = /^\d+\.\d+$/;
+const SLACK_EVENT_TTL_MS = 60 * 60 * 1_000;
+
 function notFound(conversationId: string): Error {
   return new Error(`NOT_FOUND: conversation ${conversationId} does not exist`);
 }
@@ -48,8 +51,18 @@ function createStoredTurn(turn: NewChatTurn, createdAt: number): ChatTurn {
   };
 }
 
+function assertValidSlackThreadTs(slackThreadTs: string): void {
+  if (!SLACK_THREAD_TS_PATTERN.test(slackThreadTs)) {
+    throw new Error(
+      `INVALID_SLACK_THREAD_TS: ${slackThreadTs} is not a Slack thread timestamp`,
+    );
+  }
+}
+
 function makeConversationStoreMemory(): ConversationStore {
   const conversations = new Map<string, Conversation>();
+  const conversationIdsBySlackThread = new Map<string, string>();
+  const processedSlackEvents = new Map<string, number>();
 
   return {
     async create(userId) {
@@ -82,6 +95,97 @@ function makeConversationStoreMemory(): ConversationStore {
         -MAX_TURNS_PER_CONVERSATION,
       );
       conversation.updatedAt = now;
+
+      return conversation;
+    },
+
+    async startEscalation(conversationId, userId, slackThreadTs, now) {
+      assertValidSlackThreadTs(slackThreadTs);
+      const conversation = getOwnedConversation(
+        conversations,
+        conversationId,
+        userId,
+      );
+      if (
+        conversation.escalation !== null
+        && conversation.escalation.answeredAt === null
+      ) {
+        throw new Error(
+          `ESCALATION_IN_PROGRESS: conversation ${conversationId}`,
+        );
+      }
+
+      conversation.escalation = {
+        askedAt: now,
+        slackThreadTs,
+        autoReplySentAt: null,
+        answeredAt: null,
+      };
+      conversation.updatedAt = now;
+      conversationIdsBySlackThread.set(slackThreadTs, conversationId);
+
+      return conversation;
+    },
+
+    async markAutoReplySent(conversationId, userId, now) {
+      const conversation = getOwnedConversation(
+        conversations,
+        conversationId,
+        userId,
+      );
+      const escalation = conversation.escalation;
+      if (
+        escalation === null
+        || escalation.autoReplySentAt !== null
+        || escalation.answeredAt !== null
+      ) {
+        return false;
+      }
+
+      escalation.autoReplySentAt = now;
+      conversation.updatedAt = now;
+      return true;
+    },
+
+    async appendOperatorReply(slackThreadTs, content, eventId, now) {
+      if (!SLACK_THREAD_TS_PATTERN.test(slackThreadTs)) return null;
+
+      const eventExpiry = processedSlackEvents.get(eventId);
+      if (eventExpiry !== undefined) {
+        if (eventExpiry > Date.now()) return null;
+        processedSlackEvents.delete(eventId);
+      }
+
+      const conversationId = conversationIdsBySlackThread.get(slackThreadTs);
+      if (!conversationId) return null;
+
+      const conversation = conversations.get(conversationId);
+      if (!conversation) {
+        conversationIdsBySlackThread.delete(slackThreadTs);
+        return null;
+      }
+      if (conversation.updatedAt + CONVERSATION_TTL_MS <= Date.now()) {
+        conversationIdsBySlackThread.delete(slackThreadTs);
+        conversations.delete(conversationId);
+        return null;
+      }
+      if (conversation.escalation?.slackThreadTs !== slackThreadTs) {
+        conversationIdsBySlackThread.delete(slackThreadTs);
+        return null;
+      }
+
+      const operatorTurn = createStoredTurn(
+        { role: "operator", content },
+        now,
+      );
+      conversation.turns = [...conversation.turns, operatorTurn].slice(
+        -MAX_TURNS_PER_CONVERSATION,
+      );
+      if (conversation.escalation.answeredAt === null) {
+        conversation.escalation.answeredAt = now;
+      }
+      conversation.updatedAt = now;
+      processedSlackEvents.set(eventId, Date.now() + SLACK_EVENT_TTL_MS);
 
       return conversation;
     },

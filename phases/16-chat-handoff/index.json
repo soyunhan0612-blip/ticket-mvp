@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "escalation-store",
-      "status": "pending"
+      "status": "completed",
+      "summary": "startEscalation(conversationId: string, userId: string, slackThreadTs: string, now: number): Promise<Conversation>; markAutoReplySent(conversationId: string, userId: string, now: number): Promise<boolean>; appendOperatorReply(slackThreadTs: string, content: string, eventId: string, now: number): Promise<Conversation | null>; Redis keys: conversation:slack-thread:{slackThreadTs}, conversation:slack-event:{eventId}; Lua operation markers: start-escalation, mark-auto-reply-sent, append-operator-reply; slackThreadTs regex: /^\\d+\\.\\d+$/.",
+      "started_at": "2026-09-12T19:49:26+0900",
+      "completed_at": "2026-09-12T20:04:14+0900"
     },
     {
       "step": 4,
