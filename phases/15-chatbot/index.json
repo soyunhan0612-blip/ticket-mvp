@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "conversation-store-redis",
-      "status": "pending"
+      "status": "completed",
+      "summary": "Redis keys: conversation:{conversationId}:meta, conversation:{conversationId}:turns; Lua operation markers: create-conversation, get-conversation, append-conversation.",
+      "started_at": "2026-09-12T14:22:20+0900",
+      "completed_at": "2026-09-12T14:30:31+0900"
     },
     {
       "step": 5,

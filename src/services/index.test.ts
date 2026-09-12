@@ -11,6 +11,7 @@ async function importStores() {
     import("./show-store-memory"),
     import("./seat-store-memory"),
     import("./reservation-store-memory"),
+    import("./conversation-store-memory"),
   ]);
 
   return { stores, memory };
@@ -35,9 +36,13 @@ describe("store factory backend selection", () => {
     expect(stores.getReservationStore()).toBe(
       memory[2].createReservationStoreMemory(seatStore),
     );
+    expect(stores.getConversationStore()).toBe(
+      memory[3].createConversationStoreMemory(),
+    );
     expect(stores.getShowStore()).toBe(stores.getShowStore());
     expect(stores.getSeatStore()).toBe(stores.getSeatStore());
     expect(stores.getReservationStore()).toBe(stores.getReservationStore());
+    expect(stores.getConversationStore()).toBe(stores.getConversationStore());
   });
 
   it("returns singleton Redis stores when Redis is configured", async () => {
@@ -49,14 +54,17 @@ describe("store factory backend selection", () => {
     const showStore = stores.getShowStore();
     const seatStore = stores.getSeatStore();
     const reservationStore = stores.getReservationStore();
+    const conversationStore = stores.getConversationStore();
 
     expect(showStore).not.toBe(memory[0].createShowStoreMemory());
     expect(seatStore).not.toBe(memory[1].createSeatStoreMemory());
     expect(reservationStore).not.toBe(
       memory[2].createReservationStoreMemory(memory[1].createSeatStoreMemory()),
     );
+    expect(conversationStore).not.toBe(memory[3].createConversationStoreMemory());
     expect(stores.getShowStore()).toBe(showStore);
     expect(stores.getSeatStore()).toBe(seatStore);
     expect(stores.getReservationStore()).toBe(reservationStore);
+    expect(stores.getConversationStore()).toBe(conversationStore);
   });
 });
