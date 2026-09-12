@@ -1,0 +1,41 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "16-chat-handoff",
+  "steps": [
+    {
+      "step": 0,
+      "name": "slack-signature",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "slack-client",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "escalation-core",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "escalation-store",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "escalation-wiring",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "slack-events",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "handoff-ui-docs",
+      "status": "pending"
+    }
+  ]
+}

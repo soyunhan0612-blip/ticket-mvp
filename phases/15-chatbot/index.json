@@ -1,0 +1,51 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "15-chatbot",
+  "steps": [
+    {
+      "step": 0,
+      "name": "tdd-guard-chatbot",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "chat-core-primitives",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "chat-engine",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "conversation-store",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "conversation-store-redis",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "ticket-adapter-base",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "ticket-tools",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "chat-api",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "chat-ui",
+      "status": "pending"
+    }
+  ]
+}
