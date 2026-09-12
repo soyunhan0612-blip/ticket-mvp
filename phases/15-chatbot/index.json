@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "ticket-tools",
-      "status": "pending"
+      "status": "completed",
+      "summary": "list_shows(z.object({})), get_show(z.object({ showId: z.string() })), get_session_availability(z.object({ sessionId: z.string() })), list_my_reservations(z.object({})), get_refund_policy(z.object({})) 다섯 조회 툴과 TICKET_CHAT_READ_ONLY_SOURCE_PATHS 배열 기반 무부작용 경계 테스트를 추가했다.",
+      "started_at": "2026-09-12T15:01:21+0900",
+      "completed_at": "2026-09-12T15:08:13+0900"
     },
     {
       "step": 7,
