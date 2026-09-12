@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { createEscalationTool } from "@/chatbot/adapters/ticket/escalation-tool";
 import {
   CHAT_MAX_ITERATIONS,
   CHAT_MAX_TOKENS,
@@ -15,6 +16,7 @@ import { wrapUserInput } from "@/chatbot/core/sanitize";
 import type { ChatHistoryTurn } from "@/chatbot/core/types";
 import { getUserIdFromRequest } from "@/lib/cookie";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { hasSlackConfig, postSlackMessage } from "@/lib/slack-client";
 import {
   getConversationStore,
   getReservationStore,
@@ -36,6 +38,11 @@ const ipRateLimiter = createRateLimiter({
 const userRateLimiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 10,
+});
+
+const escalationRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  maxRequests: 3,
 });
 
 const responseHeaders = {
@@ -189,18 +196,31 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(createTextStream(fallback), { headers });
   }
 
+  const canEscalate = hasSlackConfig();
+  const tools = createTicketChatTools({
+    showStore: getShowStore(),
+    seatStore: getSeatStore(),
+    reservationStore: getReservationStore(),
+    userId,
+  });
+  if (canEscalate) {
+    tools.push(createEscalationTool({
+      conversationId: conversation.id,
+      userId,
+      conversationStore,
+      postMessage: (text) => postSlackMessage({ text }),
+      canEscalateNow: () => escalationRateLimiter.check(userId).allowed,
+      now: () => Date.now(),
+    }));
+  }
+
   const stream = createChatStream({
     apiKey,
     model: CHAT_MODEL,
     maxTokens: CHAT_MAX_TOKENS,
     maxIterations: CHAT_MAX_ITERATIONS,
-    systemPrompt: buildTicketChatSystemPrompt(),
-    tools: createTicketChatTools({
-      showStore: getShowStore(),
-      seatStore: getSeatStore(),
-      reservationStore: getReservationStore(),
-      userId,
-    }),
+    systemPrompt: buildTicketChatSystemPrompt({ canEscalate }),
+    tools,
     history: createHistory(conversation),
   });
 

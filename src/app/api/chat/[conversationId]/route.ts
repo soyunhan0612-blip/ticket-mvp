@@ -1,3 +1,9 @@
+import {
+  AUTO_REPLY_TEXT,
+  isAwaitingOperator,
+  shouldSendAutoReply,
+} from "@/chatbot/core/escalation";
+import type { EscalationSnapshot } from "@/chatbot/core/escalation";
 import { getUserIdFromRequest } from "@/lib/cookie";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { getConversationStore } from "@/services";
@@ -27,6 +33,19 @@ function sanitizeConversation(conversation: Conversation) {
   };
 }
 
+function toEscalationSnapshot(
+  conversation: Conversation,
+): EscalationSnapshot | null {
+  const escalation = conversation.escalation;
+  if (escalation === null) return null;
+
+  return {
+    askedAt: escalation.askedAt,
+    autoReplySentAt: escalation.autoReplySentAt,
+    answeredAt: escalation.answeredAt,
+  };
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ conversationId: string }> },
@@ -53,14 +72,37 @@ export async function GET(
 
   const { conversationId } = await context.params;
   try {
-    const conversation = await getConversationStore().get(
+    const conversationStore = getConversationStore();
+    let conversation = await conversationStore.get(
       conversationId,
       userId,
     );
+    let escalation = toEscalationSnapshot(conversation);
+    const now = Date.now();
+
+    if (shouldSendAutoReply(escalation, now)) {
+      const claimed = await conversationStore.markAutoReplySent(
+        conversationId,
+        userId,
+        now,
+      );
+      if (claimed) {
+        // 이 표시와 턴 추가 사이에 인스턴스가 종료되면 안내 턴 없이 표시만
+        // 남을 수 있다. 드문 저피해 실패 창으로 허용한다.
+        conversation = await conversationStore.appendTurns(
+          conversationId,
+          userId,
+          [{ role: "notice", content: AUTO_REPLY_TEXT }],
+        );
+      } else {
+        conversation = await conversationStore.get(conversationId, userId);
+      }
+      escalation = toEscalationSnapshot(conversation);
+    }
 
     return Response.json({
       conversation: sanitizeConversation(conversation),
-      awaitingOperator: false,
+      awaitingOperator: isAwaitingOperator(escalation),
     });
   } catch (error) {
     if (error instanceof Error) {

@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getConversationStore } from "@/services";
 import type { Conversation } from "@/types";
+import {
+  AUTO_REPLY_DELAY_MS,
+  AUTO_REPLY_TEXT,
+} from "@/chatbot/core/escalation";
 
 import { dynamic, GET } from "./route";
 
@@ -140,6 +144,49 @@ describe("GET /api/chat/[conversationId]", () => {
       awaitingOperator: false,
     });
     expect(JSON.stringify(body)).not.toContain("slackChannelId");
+  });
+
+  it("appends the overdue auto reply once and keeps only awaitingOperator public", async () => {
+    const store = getConversationStore();
+    const userId = `auto-reply-user-${crypto.randomUUID()}`;
+    const conversation = await store.create(userId);
+    await store.startEscalation(
+      conversation.id,
+      userId,
+      "1234567890.123456",
+      Date.now() - AUTO_REPLY_DELAY_MS,
+    );
+
+    const firstResponse = await GET(
+      makeRequest(
+        conversation.id,
+        `auto-reply-first-${crypto.randomUUID()}`,
+        userId,
+      ),
+      makeContext(conversation.id),
+    );
+    const secondResponse = await GET(
+      makeRequest(
+        conversation.id,
+        `auto-reply-second-${crypto.randomUUID()}`,
+        userId,
+      ),
+      makeContext(conversation.id),
+    );
+    const firstBody = await firstResponse.json() as Record<string, unknown>;
+    const secondBody = await secondResponse.json() as Record<string, unknown>;
+    const stored = await store.get(conversation.id, userId);
+    const notices = stored.turns.filter(
+      (turn) => turn.role === "notice" && turn.content === AUTO_REPLY_TEXT,
+    );
+
+    expect(firstBody.awaitingOperator).toBe(true);
+    expect(secondBody.awaitingOperator).toBe(true);
+    expect(notices).toHaveLength(1);
+    expect(JSON.stringify(firstBody)).not.toContain("escalation");
+    expect(JSON.stringify(firstBody)).not.toContain("1234567890.123456");
+    expect(JSON.stringify(secondBody)).not.toContain("escalation");
+    expect(JSON.stringify(secondBody)).not.toContain("1234567890.123456");
   });
 
   it("returns 429 with Retry-After after sixty polls from one IP", async () => {

@@ -14,6 +14,11 @@ export const TICKET_CHAT_READ_ONLY_SOURCE_PATHS = [
   "src/chatbot/adapters/ticket/tools.ts",
 ] as const;
 
+// escalation-tool.ts는 Slack 전송과 startEscalation이라는 허용된 부작용을
+// 가지므로 위 조회 전용 배열에서 명시적으로 제외하고 아래에서 별도로 검사한다.
+const TICKET_CHAT_ESCALATION_SOURCE_PATH =
+  "src/chatbot/adapters/ticket/escalation-tool.ts";
+
 const FORBIDDEN_WRITE_IDENTIFIERS = [
   "hold",
   "release",
@@ -36,5 +41,28 @@ describe("ticket chat read-only boundary", () => {
         expect(source).not.toMatch(new RegExp(`\\b${identifier}\\b`));
       }
     }
+  });
+
+  it("limits the escalation tool to Slack and conversation escalation effects", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), TICKET_CHAT_ESCALATION_SOURCE_PATH),
+      "utf8",
+    );
+    const forbiddenIdentifiers = [
+      "hold",
+      "confirmSeats",
+      "releaseSold",
+      "revertSold",
+      "cancel",
+      "getSeatStore",
+      "getShowStore",
+      "getReservationStore",
+    ] as const;
+
+    for (const identifier of forbiddenIdentifiers) {
+      expect(source).not.toMatch(new RegExp(`\\b${identifier}\\b`));
+    }
+    expect(source).toContain("postMessage");
+    expect(source).toContain("startEscalation");
   });
 });

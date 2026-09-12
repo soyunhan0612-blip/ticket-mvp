@@ -34,6 +34,8 @@ function makeRequest(
 
 describe("POST /api/chat", () => {
   const originalApiKey = process.env.ANTHROPIC_API_KEY;
+  const originalSlackBotToken = process.env.SLACK_BOT_TOKEN;
+  const originalSlackChannelId = process.env.SLACK_CHANNEL_ID;
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -42,6 +44,16 @@ describe("POST /api/chat", () => {
       delete process.env.ANTHROPIC_API_KEY;
     } else {
       process.env.ANTHROPIC_API_KEY = originalApiKey;
+    }
+    if (originalSlackBotToken === undefined) {
+      delete process.env.SLACK_BOT_TOKEN;
+    } else {
+      process.env.SLACK_BOT_TOKEN = originalSlackBotToken;
+    }
+    if (originalSlackChannelId === undefined) {
+      delete process.env.SLACK_CHANNEL_ID;
+    } else {
+      process.env.SLACK_CHANNEL_ID = originalSlackChannelId;
     }
   });
 
@@ -274,6 +286,35 @@ describe("POST /api/chat", () => {
     };
     expect(config.history.at(-1)?.content).toContain(USER_INPUT_START);
     expect(config.history.at(-1)?.content).toContain(USER_INPUT_END);
+  });
+
+  it("omits the handoff tool and promise when Slack is not configured", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    delete process.env.SLACK_BOT_TOKEN;
+    delete process.env.SLACK_CHANNEL_ID;
+    createChatStreamMock.mockReturnValue(createTextStream("모델 답변"));
+    const userId = `no-slack-user-${crypto.randomUUID()}`;
+
+    const response = await POST(
+      makeRequest(
+        { message: "결제 오류가 났어요" },
+        `no-slack-${crypto.randomUUID()}`,
+        userId,
+      ),
+    );
+    await response.text();
+
+    const config = createChatStreamMock.mock.calls[0]?.[0] as {
+      systemPrompt: string;
+      tools: Array<{ name: string }>;
+    };
+    expect(config.tools.map((tool) => tool.name)).not.toContain(
+      "escalate_to_human",
+    );
+    expect(config.systemPrompt).toContain(
+      "상담원 연결은 현재 제공되지 않는다",
+    );
+    expect(config.systemPrompt).not.toContain("escalate_to_human");
   });
 
   it("delivers the whole answer even when saving the assistant turn fails", async () => {
