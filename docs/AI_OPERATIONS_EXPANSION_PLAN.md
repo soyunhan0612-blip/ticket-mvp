@@ -143,7 +143,7 @@ n8n은 저장소 밖 인프라다. **워크플로 JSON export와 재현 절차�
 
 ## 테스트·검증 규약
 
-- `src/lib/`, `src/services/`, `src/app/api/**/route.ts`는 TDD 가드가 **테스트 선행 없이는 편집을 차단**한다. `12-ai-operations`의 세 단계와 Agent Tool이 전부 이 경로다. 훅과 싸우지 말고 순서를 지킨다
+- `src/lib/`, `src/services/`, `src/app/api/**/route.ts`, `src/chatbot/core/`, `src/chatbot/adapters/`는 TDD 가드가 **테스트 선행 없이는 편집을 차단**한다. `12-ai-operations`의 세 단계와 Agent Tool이 전부 이 경로다. `src/chatbot/ui/`는 가드 대상이 아니다. 훅과 싸우지 말고 순서를 지킨다
 - 테스트는 소스 옆 `<name>.test.ts`에 둔다. vitest는 `src/**`만 수집한다
 - `vitest.setup.ts`가 Upstash 환경변수를 지우므로 테스트는 항상 메모리 스토어로 돈다. Redis 경로는 클라이언트를 목킹해 검증한다
 - 각 step의 Acceptance Criteria는 `npm run test && npm run lint`

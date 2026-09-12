@@ -17,7 +17,7 @@
 
 ## 개발 프로세스
 - CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD)
-- `tdd-guard` 훅이 `lib/`, `services/`, `app/api/**/route.ts` 편집을 테스트 선행 없이 차단한다. `components/`, `page.tsx`, `layout.tsx`, `types/`, 설정 파일은 통과. 훅과 싸우지 말고 순서를 지킨다
+- `tdd-guard` 훅이 `lib/`, `services/`, `app/api/**/route.ts`, `chatbot/core/`, `chatbot/adapters/` 편집을 테스트 선행 없이 차단한다. `components/`, `page.tsx`, `layout.tsx`, `types/`, `chatbot/ui/`, 설정 파일은 통과. 훅과 싸우지 말고 순서를 지킨다
 - 커밋 메시지는 conventional commits 형식 (feat:, fix:, docs:, refactor:)
 - **Day 3의 순진한 좌석 구현은 반드시 별도 커밋으로 남긴다** — 성능 before/after 서사의 증거. 없으면 서사가 통째로 증발한다
 - 훅 스크립트 자체의 규약은 `scripts/hooks/CLAUDE.md`에 있다 (그 디렉터리 작업 시 자동 로드)

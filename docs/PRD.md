@@ -54,7 +54,7 @@
 - **`.gitignore`에 `.env*` 추가**, `.env.example` 생성
 - **Stop 훅에서 `build` 제거** (`lint && test`만)
 - `CLAUDE.md`의 프로젝트명·스택·아키텍처 규칙 템플릿 채우기
-- `tdd-guard.sh`의 차단 범위를 계획과 일치시키기 — `lib/`, `services/`, `app/api/**/route.ts`만 강제. `atoms/`, provider, middleware/proxy 같은 연결 코드까지 우발적으로 막지 않도록 수정
+- `tdd-guard.sh`의 차단 범위를 계획과 일치시키기 — `lib/`, `services/`, `app/api/**/route.ts`만 강제. `atoms/`, provider, middleware/proxy 같은 연결 코드까지 우발적으로 막지 않도록 수정 (현재 강제 범위의 단일 출처는 `scripts/hooks/hook-utils.cjs`다)
 - Next.js 15 + TS strict + Tailwind + Tanstack Query + Jotai + vitest 셋업
 - `types/index.ts`: `Show / Session / Seat / SeatStatus / Hold / Reservation / SeatSnapshot`
 - `lib/mock-data.ts`: 2000석 생성기(구역·열·번), 공연 8개 · 회차 24개

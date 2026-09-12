@@ -19,7 +19,7 @@
 
 ## 개발 워크플로
 
-- `src/lib/`, `src/services/`, `src/app/api/**/route.ts` 아래의 파일에는 TDD를 적용한다. 구현 전에 해당 테스트를 먼저 추가한다.
+- `src/lib/`, `src/services/`, `src/app/api/**/route.ts`, `src/chatbot/core/`, `src/chatbot/adapters/` 아래의 파일에는 TDD를 적용한다. 구현 전에 해당 테스트를 먼저 추가한다. `src/chatbot/ui/`는 제외한다.
 - 작업 트리에 있는 사용자의 관련 없는 변경 사항을 보존한다.
 - 사용자가 커밋을 요청하면 Conventional Commits 형식의 커밋 메시지를 사용한다.
 - 사용자가 명시적으로 요청하지 않는 한 `docs/PRD.md`에서 범위 밖으로 분류한 기능을 추가하지 않는다.
