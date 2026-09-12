@@ -10,7 +10,7 @@ src/
 │   ├── seller/new/
 │   ├── admin/
 │   ├── login/
-│   └── api/{shows,sessions,holds,reservations,ai,admin,auth}/
+│   └── api/{shows,sessions,holds,reservations,ai,admin,auth,chat}/
 ├── components/seat/                   # SeatMap, Seat, ZoomPanSvg, SelectionBar, HoldTimer
 ├── atoms/                             # Jotai atomFamily
 ├── hooks/                             # Tanstack Query 훅 (use-seat-snapshot, use-hold-mutation …)
@@ -135,11 +135,17 @@ interface ReservationStore {
   listByUser(userId): Promise<Reservation[]>
   cancel(reservationId, userId): Promise<Reservation>       // 소유자 불일치 403, 중복 취소 409
 }
+
+interface ConversationStore {   // 관람객 챗봇 (ADR-008). 기존 셋과 같은 모양의 Store를 하나 더한 것
+  create(userId): Promise<Conversation>
+  get(conversationId, userId): Promise<Conversation>                   // 없으면 NOT_FOUND, 남의 것이면 FORBIDDEN throw
+  appendTurns(conversationId, userId, turns): Promise<Conversation>    // 턴 id·createdAt은 store가 매긴다. content는 상한에서 자르고, 턴 수 초과 시 오래된 것부터 버린다. TTL은 마지막 append부터 다시 센다
+}
 ```
 
 구현체:
 - `services/*-store-memory.ts` — `globalThis` 싱글톤. Day 1~8
-- `services/*-store-redis.ts` — 좌석·공연·회차·예약을 Upstash에 영속화. Day 9에 팩토리 한 줄로 교체
+- `services/*-store-redis.ts` — 좌석·공연·회차·예약·대화를 Upstash에 영속화. Day 9에 팩토리 한 줄로 교체
 - 이 교체가 성공하는 것 자체가 **"API route만 갈아끼우면 프론트는 그대로"라는 주장의 증거**이므로 별도 커밋으로 남긴다
 
 ## Redis 자료구조 — 세션 Hash 하나
