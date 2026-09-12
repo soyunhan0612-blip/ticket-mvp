@@ -63,12 +63,18 @@ export function createTicketChatTools(deps: TicketChatDeps): ChatToolDescriptor[
   **`userId` 필드를 제거하고** 반환한다. `sanitizeReservation` 패턴이다
 - `Reservation`에는 공연 제목도 회차 시각도 없다. `deps.showStore.getBySessionId(sessionId)`로
   역참조해야 사람이 읽을 수 있는 답이 된다
-- `get_session_availability`는 `deps.seatStore.getSnapshot(sessionId, deps.userId)`의 결과를
+- `get_session_availability`는 `deps.seatStore.getSnapshot(sessionId, "")`의 결과를
   `computeSeatStats(snapshot.seats, show.presetId)`에 넘긴다. **직접 세지 마라** —
   집계는 `src/lib/seat-stats.ts` 한 곳에 있다는 것이 ADR-007의 "숫자 출처 단일화"다
-- `getSnapshot`이 돌려주는 `mine` 플래그를 툴 결과에 싣지 마라. 이 툴이 답하는 것은 잔여석이다
+- **`getSnapshot`의 두 번째 인자에 `deps.userId`를 넘기지 마라.** 빈 문자열이 의도된 값이다 —
+  잔여석 집계에 소유권 구분이 필요 없고, 그러면 `mine` 플래그가 애초에 만들어지지 않아
+  툴 결과에 실릴 여지 자체가 없다. `ARCHITECTURE.md:107`의 운영 집계가 같은 이유로 같은
+  형태를 쓴다. `deps.userId`는 `list_my_reservations`에서만 쓴다
 - **셀러가 입력한 값은 전부 `wrapUserInput()`으로 감싼다** — `show.title`과 `show.description`.
   `ops-agent-tools.ts:56,83`이 같은 처리를 한다
+- `show.description`에는 **상한을 명시**한다 — `wrapUserInput(show.description, 600)`.
+  `sanitize.ts`의 기본값은 100자라, 셀러가 AI로 생성한 설명(`AI_MAX_TOKENS` 600)이
+  기본값으로는 반토막 나 `get_show`의 답이 잘린다. `show.title`은 기본값 그대로 둔다
 - 존재하지 않는 `showId`·`sessionId`에는 **throw하지 말고** `{ found: false }` 같은 형태로
   돌려줘라. 툴이 throw하면 툴 루프 전체가 끊겨 손님이 빈 답을 본다
 
@@ -78,8 +84,14 @@ export function createTicketChatTools(deps: TicketChatDeps): ChatToolDescriptor[
 
 - **검사 대상 파일 경로를 배열 상수로 둔다.** `ops-agent-tools.test.ts:15-19`가 그 형태다.
   디렉터리를 훑으면 금지 식별자 목록을 담은 **이 테스트 파일 자신이** 걸린다
+- 배열에 넣을 것은 **소스 네 개뿐이다** — `deps.ts`, `prompt.ts`, `refund-policy.ts`, `tools.ts`.
+  형제 테스트(`deps.test.ts`·`refund-policy.test.ts`)는 넣지 마라 — 그 파일들이 `Pick<>`으로
+  잘라낸 메서드 이름을 문자열 리터럴로 단정하고 있어 거짓 실패한다
 - 금지 식별자 최소 목록: `hold`, `release`, `confirmSeats`, `releaseSold`, `revertSold`,
   `cancel`, `getSeatStore`, `getShowStore`, `getReservationStore`
+- **타입 이름(`ShowStore`·`SeatStore`·`ReservationStore`)은 목록에 넣지 마라.** `deps.ts`가
+  `Pick<>`을 만들려고 그 타입들을 `import type`으로 가져온다. 막을 대상은 팩토리 함수와
+  쓰기 메서드 이름뿐이다
 - 팩토리 함수 이름까지 막는 이유는, `deps`를 우회해 store를 직접 가져오면 `Pick<>` 제약이
   무의미해지기 때문이다
 
