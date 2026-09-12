@@ -214,7 +214,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
 공통으로 거는 최소 방어는 IP당 rate limit이다. 값은 용도에 따라 다르다 — 버튼 한 번에 질문 하나인 세 라우트는 **분당 3회**, 턴이 빠르게 쌓이는 `/api/chat`은 **분당 10회**, 3초 폴링을 받는 `/api/chat/[conversationId]`는 **분당 60회**다. `/api/chat/slack/events`에는 걸지 않는다 — 슬랙의 출발 IP가 고정이 아니고 서명이 이미 게이트다.
 
-`max_tokens` 상한은 설명·요약이 600(`AI_MAX_TOKENS`), Tool 루프를 도는 `/api/admin/agent`가 2000(`AGENT_MAX_TOKENS`)이다. 모델은 **Haiku 4.5**가 기본이고, 무엇을 조회할지 스스로 골라야 하는 두 곳 — `/api/admin/agent`와 `/api/chat` — 만 **Opus 5**다 (ADR-007, ADR-008). `/api/chat`은 무인증 공개 라우트에 Opus 5를 거는 의도된 예외이고, 레이트리밋이 유일한 비용 상한이다. 모델 ID는 `CHAT_MODEL` 상수 하나에 있어 한 줄로 내릴 수 있다. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
+`max_tokens` 상한은 설명·요약이 600(`AI_MAX_TOKENS`), Tool 루프를 도는 `/api/admin/agent`와 `/api/chat`이 2000(각각 `AGENT_MAX_TOKENS`, `CHAT_MAX_TOKENS`)이다. 모델은 **Haiku 4.5**가 기본이고, 무엇을 조회할지 스스로 골라야 하는 두 곳 — `/api/admin/agent`와 `/api/chat` — 만 **Opus 5**다 (ADR-007, ADR-008). `/api/chat`은 무인증 공개 라우트에 Opus 5를 거는 의도된 예외이고, 레이트리밋이 유일한 비용 상한이다. 모델 ID는 `CHAT_MODEL` 상수 하나에 있어 한 줄로 내릴 수 있다. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 
 **감싸기만으로는 부족하다.** 감싸는 값이 구분자 자체를 담고 있으면 블록이 조기에 닫히고 뒤따르는 문장이 신뢰 영역에 놓인다. 그래서 `lib/ai-prompt.ts`가 감싸기 전에 `=` 연속을 하나로 접고 개행을 접은 뒤 100자로 자른다. 구분자 리터럴을 *지우는* 방식은 `===USER_INPUT_===USER_INPUT_END===END===`처럼 겹쳐 심으면 제거 후 구분자가 되살아나므로 쓰지 않는다. 운영 요약(`/api/admin/ai-summary`)에서 특히 중요하다 — 그 프롬프트에 들어가는 공연 제목은 요약을 읽는 관리자가 아니라 **셀러가 입력한 값**이라, 여기서 뚫리면 관리자가 조작된 운영 보고를 읽는다.
 
