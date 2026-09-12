@@ -21,6 +21,7 @@ const FORBIDDEN_WRITE_IDENTIFIERS = [
   "releaseSold",
   "revertSold",
   "cancel",
+  "create",
   "getSeatStore",
   "getShowStore",
   "getReservationStore",
