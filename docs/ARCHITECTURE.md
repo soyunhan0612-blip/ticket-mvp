@@ -208,7 +208,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 익명 `userId`는 미들웨어의 `withUserIdCookie`가 발급하는데 **응답에만 실린다** — 같은 요청의 route handler는 아직 그 쿠키를 보지 못한다. 브라우저는 다음 요청부터 쿠키를 되돌려주므로 문제가 없지만, 쿠키를 보관하지 않고 `Authorization: Basic`만 보내는 호출자(스케줄러·`curl`)는 `getUserIdFromRequest`를 쓰는 라우트에서 매번 401을 맞는다. 기계 호출을 받을 엔드포인트는 신원 확인을 미들웨어 게이트에 맡기고 쿠키 검사를 두지 않는다 (ADR-007).
 
 ### AI 엔드포인트
-노출도가 셋으로 갈린다. `/api/ai/description`과 `/api/chat`은 게이트 밖이라 **무인증 공개**이고, `/api/admin/ai-summary`와 `/api/admin/agent`는 `/api/admin` 이하라 미들웨어 게이트 뒤에 있다. `/api/chat/slack/events`는 쿠키도 Basic도 쓰지 않고 **슬랙 서명 검증**이 유일한 게이트다.
+노출도가 셋으로 갈린다. `/api/ai/description`과 `/api/chat`은 게이트 밖이라 **무인증 공개**이고(다만 `/api/chat`은 익명 `userId` 쿠키가 없으면 401이라 `curl`만으로는 열리지 않는다), `/api/admin/ai-summary`와 `/api/admin/agent`는 `/api/admin` 이하라 미들웨어 게이트 뒤에 있다. `/api/chat/slack/events`는 쿠키도 Basic도 쓰지 않고 **슬랙 서명 검증**이 유일한 게이트다.
 
 새 AI 라우트를 만들 때 기본은 게이트 뒤다 — 운영 데이터를 다루면서 공개 배치를 복제하면 매출·재고가 그대로 공개된다. 관람객 챗봇만 예외인데, 익명 손님이 쓰는 창구라 게이트 뒤로 갈 수 없기 때문이다. 대신 내보내는 범위를 **좌석 화면이 이미 공개하는 것**(공연·회차·좌석 현황 집계 — 매출·판매율은 제외)으로 묶었다 (ADR-008).
 
