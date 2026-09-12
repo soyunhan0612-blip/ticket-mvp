@@ -36,7 +36,14 @@ ROOT = Path(__file__).resolve().parent.parent
 # PROGRESS는 과거형 저널이라 낡은 상태 서술이 정상인데, Codex는 그 단서를 받지 못한 채
 # 가드레일로 읽는다 - 명세 다수가 "모순이면 blocked"를 지시하므로 실패를 부를 수 있다.
 # PERF_MEASUREMENT는 사람이 따라 하는 측정 절차다. 둘이 주입량의 28%(420줄)를 차지한다.
-GUARDRAIL_DOC_EXCLUDE = frozenset({"PROGRESS.md", "PERF_MEASUREMENT.md"})
+# TEST_SCENARIOS도 같은 종류다 - 사람이 브라우저에서 따라 하는 수동 검증 절차이고,
+# 혼자 22,092자(주입량의 29%)를 차지한다. 부록의 "알려진 차이"는 구현 지침이 아니라
+# 현재 상태 서술이라 PROGRESS와 같은 위험을 갖는다.
+GUARDRAIL_DOC_EXCLUDE = frozenset({
+    "PROGRESS.md",
+    "PERF_MEASUREMENT.md",
+    "TEST_SCENARIOS.md",
+})
 
 
 @contextlib.contextmanager
