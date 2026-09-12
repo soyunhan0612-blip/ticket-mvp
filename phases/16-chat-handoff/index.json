@@ -48,7 +48,7 @@
       "status": "completed",
       "summary": "/api/chat/slack/events에서 Slack 서명·타임스탬프를 검증하고 bot_id/bot_message, 비-message, 타 채널, 비스레드·루트, 빈 text, 미등록 thread/type 이벤트를 빈 200으로 무시하며 상담원 답장을 중복 없이 저장한다; 호출자 유일성 테스트: src/services/conversation-store-callers.test.ts.",
       "started_at": "2026-09-12T20:15:55+0900",
-      "completed_at": "2026-09-12T20:24:54+0900"
+      "completed_at": "2026-09-12T20:25:48+0900"
     },
     {
       "step": 6,
