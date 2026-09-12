@@ -97,8 +97,11 @@ test("requires tests for guarded implementation paths only", () => {
     "src/chatbot/core/engine.ts",
     "src/chatbot/adapters/ticket/tools.ts",
     "src/lib/foo.ts",
+    "src/lib/seat/map.ts",
     "src/services/bar.ts",
+    "src/services/memory/store.ts",
     "src/app/api/chat/route.ts",
+    "src/app/api/events/[eventId]/holds/route.ts",
   ]) assert.equal(requiresTest(file), true, file);
 
   for (const file of [
@@ -108,6 +111,10 @@ test("requires tests for guarded implementation paths only", () => {
     "src/chatbot/ui/ChatWidget.tsx",
     "src/chatbot/core/notes.md",
     "src/components/Foo.tsx",
+    "src/lib/seat/map.test.ts",
+    "src/atoms/seats.ts",
+    "src/app/events/page.tsx",
+    "src/types/seat.ts",
   ]) assert.equal(requiresTest(file), false, file);
 });
 
