@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "conversation-store",
-      "status": "pending"
+      "status": "completed",
+      "summary": "create(userId: string): Promise<Conversation>; get(conversationId: string, userId: string): Promise<Conversation>; appendTurns(conversationId: string, userId: string, turns: NewChatTurn[]): Promise<Conversation>; CONVERSATION_TTL_MS=86400000, MAX_TURNS_PER_CONVERSATION=100, MAX_TURN_CONTENT_LENGTH=4000.",
+      "started_at": "2026-09-12T14:13:07+0900",
+      "completed_at": "2026-09-12T14:20:11+0900"
     },
     {
       "step": 4,
