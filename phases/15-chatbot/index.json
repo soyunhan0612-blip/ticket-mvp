@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "chat-core-primitives",
-      "status": "pending"
+      "status": "completed",
+      "summary": "src/chatbot/core/types.ts에 ChatHistoryTurn, ChatToolDescriptor<Schema extends z.ZodType = z.ZodType>, ChatEngineConfig를, sanitize.ts에 USER_INPUT_START/END·DEFAULT_INPUT_LIMIT=100과 neutralizeInput(value: string, limit?: number): string·wrapUserInput(value: string, limit?: number): string을, history.ts에 MAX_HISTORY_TURNS=10·MAX_TURN_LENGTH=2000과 normalizeHistory(turns: ChatHistoryTurn[]): ChatHistoryTurn[]를, fallback.ts에 EMPTY_ANSWER_NOTICE·TRUNCATED_ANSWER_NOTICE와 createTextStream(text: string): ReadableStream<Uint8Array>를 추가하고 각 동명 테스트 및 __tests__/no-domain-imports.test.ts를 추가했다; 아키텍처 테스트 화이트리스트는 @anthropic-ai/sdk, @anthropic-ai/sdk/helpers/beta/zod, zod, ./ 상대 경로다.",
+      "started_at": "2026-09-12T13:20:32+0900",
+      "completed_at": "2026-09-12T13:26:44+0900"
     },
     {
       "step": 2,
