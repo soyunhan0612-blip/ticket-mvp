@@ -94,6 +94,9 @@ n8n Schedule (5분)
    ↓ GET /api/admin/alerts/sellout  → Basic 게이트
    ↓ lib/operations.collectOperations → lib/sellout-alert 판정·문구 생성
    ↓ IF text.length > 0             → Slack Webhook
+
+/admin SelloutAlertPanel
+   ↓ GET /api/admin/alerts/sellout  → n8n과 같은 응답을 임계값만 바꿔 화면에서 확인
 ```
 
 **집계는 `src/lib/seat-stats.ts`의 순수 함수 한 곳에 있다.** 운영 라우트는

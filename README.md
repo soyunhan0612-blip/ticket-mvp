@@ -201,5 +201,6 @@ Day 9에 인메모리 저장소를 **Upstash Redis**로 교체했습니다. 좌�
 - [AI Operations Expansion](docs/AI_OPERATIONS_EXPANSION_PLAN.md) — 조회 전용 AI Agent·n8n 확장의 경계와 단계
 - [Progress Journal](docs/PROGRESS.md) — Day별 실제 산출물과 남은 검증
 - [Perf Measurement](docs/PERF_MEASUREMENT.md) — 자동/수동 측정 절차와 재현 방법
+- [Test Scenarios](docs/TEST_SCENARIOS.md) — 배포본 수동 검증 시나리오와 PRD 대비 알려진 차이
 - [UX Principles](docs/UX_PRINCIPLES.md) / [UI Guide](docs/UI_GUIDE.md) — UX 원칙과 UI 규칙
 - [CLAUDE.md](CLAUDE.md) — 개발 규칙과 CRITICAL 경계

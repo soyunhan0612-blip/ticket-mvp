@@ -34,4 +34,31 @@ describe("NavBar", () => {
       "/reservations",
     );
   });
+
+  it("로그인하지 않은 방문자에게는 운영 메뉴를 숨긴다", () => {
+    render(<NavBar />);
+
+    expect(
+      screen.queryByRole("link", { name: "운영" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("운영자 로그인 상태에서는 운영 메뉴를 노출한다", () => {
+    render(<NavBar showOperations />);
+
+    expect(screen.getByRole("link", { name: "운영" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("운영 메뉴는 기존 항목 뒤에 붙는다", () => {
+    render(<NavBar showOperations />);
+
+    const labels = screen
+      .getAllByRole("listitem")
+      .map((item) => item.textContent);
+
+    expect(labels).toEqual(["공연", "공연 등록", "내 예매", "운영"]);
+  });
 });

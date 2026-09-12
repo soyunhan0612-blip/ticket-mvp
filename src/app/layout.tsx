@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { NavBar } from "@/components/navigation/NavBar";
 import { Providers } from "@/components/providers";
+import { isOperatorSession } from "@/lib/auth-session";
 
 import "./globals.css";
 
@@ -39,16 +40,22 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  /*
+   * 쿠키를 읽으므로 모든 세그먼트가 동적 렌더가 된다. 정적으로 남아 있던 것은
+   * 클라이언트가 데이터를 직접 받아오는 껍데기 화면들뿐이라 잃는 것이 적다.
+   */
+  const showOperations = await isOperatorSession();
+
   return (
     <html className={inter.variable} lang="ko">
       <body className="flex min-h-screen flex-col">
         {/* DS NavBar/Footer는 ink 밴드다. nav(dark) → 콘텐츠 → footer(dark)가 DS의 밴드 리듬 */}
-        <NavBar />
+        <NavBar showOperations={showOperations} />
 
         {/* Band fill이 flex-1로 늘어나려면 이 래퍼부터 세로 flex여야 한다 */}
         <div className="flex flex-1 flex-col">

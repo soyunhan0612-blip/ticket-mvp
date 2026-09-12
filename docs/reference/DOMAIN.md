@@ -228,6 +228,8 @@ const conflict = seatIds.filter((seatId) => {
 | 스냅샷 | snapshot | `SeatSnapshot` — 회차 좌석 상태의 전송 단위 |
 | 내 것 여부 | mine | `SeatSnapshotEntry.mine` — 남의 `userId` 대신 내려가는 값 |
 | 좌석 규모 프리셋 | preset | `SeatPresetId` (`small`/`medium`/`large`) |
+| 판매율 | sales rate | `computeSalesRate()`, `OperationsRow.salesRate` |
+| 매진 임박 | sellout risk | `SELLOUT_RISK_THRESHOLD` (기본 90%) |
 
 ---
 
@@ -360,8 +362,8 @@ HTML로 렌더하면 `<script>`나 `<img onerror=...>`가 그대로 실행되고
 (`userId`, `sellerAdminAuth`)를 훔칠 수 있다.
 
 **어디서 지키는가**: `whitespace-pre-wrap`으로 평문 렌더한다. `src/` 전체에
-`dangerouslySetInnerHTML`이 없다. AI가 생성한 설명도 마찬가지다 — 생성 주체가 아니라
-**렌더 방식**이 방어선이다.
+`dangerouslySetInnerHTML` **사용처가 없다** (`AiDescriptionGenerator.tsx`에 금지를 명시한 주석만
+있다). AI가 생성한 설명도 마찬가지다 — 생성 주체가 아니라 **렌더 방식**이 방어선이다.
 
 ### 2.9 프롬프트 인젝션 — 구분자를 지우지 않고 접는다
 
@@ -386,6 +388,11 @@ export function neutralizeUserInput(value: string, limit = 100): string {
 사용자 입력이 프롬프트에 닿는 **모든** 지점에 걸린다 — 공연 설명 생성, 운영 요약, Agent 질문,
 그리고 **Tool 출력의 `showTitle`까지**. Tool이 돌려준 값도 원래는 사용자가 쓴 것이므로
 신뢰 입력이 아니다.
+
+프롬프트가 아닌 출구에도 같은 함수가 걸린다. `src/lib/sellout-alert.ts`의
+`buildSelloutAlertText()`는 알림 문구를 만들 때 `showTitle`을 `neutralizeUserInput`으로
+중화한다 — 이 문자열은 n8n을 거쳐 외부 채널(Slack 등)로 나가므로, 셀러가 심은 개행·구분자가
+그대로 전달되면 알림 형식을 위조할 수 있다.
 
 관련: `src/lib/show-validation.ts`가 회차 시각을 `z.iso.datetime()`으로 잠근다.
 `startsAt`은 프롬프트의 **신뢰 영역**에 그대로 실리는데 중화도 길이 제한도 걸리지 않는 자리라,
@@ -448,7 +455,7 @@ Agent 도구는 **호출할 함수를 물리적으로 갖고 있지 않다.** AD
 |---|---|
 | **레이트리밋이 인메모리 `Map`** | `src/lib/rate-limit.ts`. 서버리스 인스턴스별로 독립 동작하므로 인스턴스가 늘면 실효 한도가 배수로 늘어난다 |
 | **`/api/ai/description`이 인증 게이트 밖** | `isProtectedPath`의 어느 조건에도 걸리지 않아 익명 호출이 가능하다. IP 3회/분 레이트리밋이 유일한 방어이고, 위 항목 때문에 그마저 느슨하다. **AI 과금이 붙는 엔드포인트다** |
-| **admin 운영 라우트가 미들웨어에만 의존** | `/api/admin/operations`·`ai-summary`·`agent`는 `getUserIdFromRequest`를 호출하지 않는다. 보호는 전적으로 미들웨어 게이트다. ADR-007이 "라우트만 읽으면 인증이 없어 보인다"고 자인. (`/api/admin/stats`는 `userId`도 검사) |
+| **admin 운영 라우트가 미들웨어에만 의존** | `/api/admin/operations`·`ai-summary`·`agent`·`alerts/sellout`은 `getUserIdFromRequest`를 호출하지 않는다. 보호는 전적으로 미들웨어 게이트다. ADR-007이 "라우트만 읽으면 인증이 없어 보인다"고 자인. (`/api/admin/stats`는 `userId`도 검사) |
 | **홀드 무기한 연장 가능** | 같은 사용자의 재홀드가 충돌이 아니라 TTL 갱신이다 (→ 1.5 ④). 봇이 3초마다 재홀드하면 좌석을 영구 점유할 수 있다 |
 | **`DELETE /api/holds` 호출자 없음** | 구현·테스트되어 있으나 UI에서 부르지 않는다. 홀드 해제는 만료(5분) 또는 예매 확정으로만 일어난다 |
 | **시드 공연의 `presetId` 부재** | 시드 8건에 `presetId`가 없어 `total`이 항상 2,000으로 잡힌다. **판매율 수치를 실측 서사로 인용할 수 없다** (ADR-007이 명시) |
@@ -470,6 +477,7 @@ Agent 도구는 **호출할 함수를 물리적으로 갖고 있지 않다.** AD
 | 홀드 TTL·만료 판정 | `src/lib/hold.ts` |
 | 좌석 규모 프리셋 | `src/lib/seat-preset.ts` |
 | 점유 집계 (판매율) | `src/lib/seat-stats.ts`, `src/lib/operations.ts` |
+| 매진 임박 판정 (기본 90%) | `src/lib/sellout-alert.ts` |
 | 상태 전이 (인메모리) | `src/services/seat-store-memory.ts` |
 | 상태 전이 (Redis Lua) | `src/services/seat-store-redis.ts` |
 | 예약 생성·취소·보상 롤백 | `src/services/reservation-store-memory.ts`, `...-redis.ts` |

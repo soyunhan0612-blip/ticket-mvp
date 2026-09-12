@@ -4,6 +4,7 @@ import { ShowcaseHero } from "@/components/home/ShowcaseHero";
 import { ShowCard } from "@/components/show/ShowCard";
 import { Band } from "@/components/ui/Band";
 import { buttonClassName } from "@/components/ui/Button";
+import { isOperatorSession } from "@/lib/auth-session";
 import { toHeroSlides } from "@/lib/poster-image";
 import { getShowStore } from "@/services";
 
@@ -16,6 +17,8 @@ export default async function Home() {
   const shows = await getShowStore().list();
   const featured = shows.slice(0, 3);
   const heroSlides = toHeroSlides(shows);
+  // 로그인하면 상단 네비게이션에 운영 메뉴가 생긴다. 같은 문을 두 번 두지 않는다.
+  const showOperationsBand = !(await isOperatorSession());
 
   return (
     <main>
@@ -76,6 +79,36 @@ export default async function Home() {
           </Link>
         </div>
       </Band>
+
+      {/*
+       * 아직 로그인하지 않은 방문자에게만 보이는 진입점이다. dark는 도구 표면의
+       * 색이므로(UI_GUIDE 밴드 정책) 색이 먼저 "여기부터는 관람객용이 아니다"를 말한다.
+       * red eyebrow를 쓰지 않는 것도 같은 규칙 — dark에서 red는 채움으로만 쓴다.
+       */}
+      {showOperationsBand && (
+        <Band tone="dark" width="wide">
+          <div className="space-y-lg">
+            <div className="space-y-sm">
+              <p className="text-caption-upper uppercase text-mute">
+                포트폴리오
+              </p>
+              <h2 className="text-display-sm">운영 화면</h2>
+            </div>
+
+            <p className="max-w-2xl text-body-sm text-mute">
+              실시간 좌석 점유, 회차별 판매율, AI 운영 질문, 매진 임박 알림을 한
+              화면에서 봅니다. Basic 인증이 필요합니다.
+            </p>
+
+            <Link
+              className={buttonClassName({ variant: "outline-on-dark" })}
+              href="/admin"
+            >
+              운영 화면 열기
+            </Link>
+          </div>
+        </Band>
+      )}
     </main>
   );
 }
