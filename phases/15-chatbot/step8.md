@@ -4,7 +4,7 @@
 
 먼저 아래 파일들을 읽고 프로젝트의 아키텍처와 설계 의도를 파악하라:
 
-- `/docs/UI_GUIDE.md` — **전문.** 특히 아이콘 단독 버튼 금지(120행 부근), 모달은 네이티브 `<dialog>`의 `showModal()`만 쓴다(110행 부근), 배지를 만들지 않는다(129행 부근)
+- `/docs/UI_GUIDE.md` — **전문.** 특히 아이콘 단독 버튼 금지(113행 부근, 같은 규칙이 `UX_PRINCIPLES.md:120`에도 있다), 모달은 네이티브 `<dialog>`의 `showModal()`만 쓴다(110행 부근), 배지를 만들지 않는다(129행 부근)
 - `/docs/UX_PRINCIPLES.md` — 원칙과 화면 매핑
 - `/src/components/admin/OpsAgentPanel.tsx` — **전문.** 특히 `:30-38`(`AbortController`를 `useRef`에 담고 cleanup에서 abort), `:67-89`(스트림 읽기), `:137-149`(서버 상수로 입력 길이 클램프), `:169`(`whitespace-pre-wrap`)
 - `/src/components/admin/OpsAgentPanel.test.tsx:9-19` — `createStreamingResponse(chunks)` 헬퍼와 `vi.spyOn(globalThis, "fetch")`
@@ -38,6 +38,10 @@ step 7이 두 엔드포인트를 만들었지만 부르는 화면이 없다. 이
 
 ## 작업
 
+`PRD.md:25`와 `ARCHITECTURE.md:215`가 현재형으로 말하는 **3초 폴링은 phase 16에서 켠다.**
+이 step의 `GET` 호출은 마운트 복원 1회와 스트림 종료 1회뿐이다. `refetchInterval`이나
+`setInterval`을 두지 마라 — 그러면 모든 페이지에서 위젯이 상시 폴링을 돈다.
+
 ### `src/chatbot/ui/use-chat.ts`
 
 ```ts
@@ -50,7 +54,7 @@ export interface ChatTurnView {
 
 export interface UseChatOptions {
   sendPath?: string;                                   // 기본 "/api/chat"
-  conversationPath?: (conversationId: string) => string;
+  conversationPath?: (conversationId: string) => string; // 기본 `/api/chat/${conversationId}`
   messageLimit: number;
 }
 
@@ -86,10 +90,16 @@ export function useChat(options: UseChatOptions): UseChatResult;
 - `conversationId`를 `sessionStorage`에 저장하고, **마운트 시 그 값으로 `GET`을 불러 대화를
   복원한다.** 새로고침해도 대화가 이어져야 한다. `sessionStorage` 접근은 `try`/`catch`로
   감싼다 — 사생활 보호 모드에서 던진다. `GET`이 404·403이면 저장된 id를 버리고 빈 대화로 시작한다
-- 상태 코드를 `error`에 담아 위젯이 문구를 고르게 하라. 이 훅은 `@/lib`을 쓰지 않는다
+- 상태 코드를 `error`에 담아 위젯이 문구를 고르게 하라. 이 훅은 `@/lib`을 쓰지 않는다.
+  **POST의 에러 응답 본문은 `text/plain`이다** — `response.json()`을 부르면 파싱에서 던진다.
+  상태 코드만 보고 문구를 고른다 (`GET`의 에러만 `{ error }` JSON이다)
 - **`retry` 옵션을 직접 박지 마라.** 정책은 `providers.tsx`에 있다
 
 TanStack Query를 써도 좋고 `useState`만 써도 좋다. 다만 `@/`로 시작하는 import는 금지다.
+
+**복원 GET과 스트림 종료 후 GET은 `fetch`로 직접 불러라.** Query에 얹으면 `providers.tsx`의
+전역 retry 3회 + 지수 백오프(합 7초)가 404 복원을 `vitest.setup.ts:6`의 5초 타임아웃 밖으로
+밀어낸다. `retry`를 직접 박는 것은 위에서 금지했으므로 빠져나갈 길이 없다.
 
 ### `src/chatbot/ui/__tests__/no-domain-imports.test.ts`
 
