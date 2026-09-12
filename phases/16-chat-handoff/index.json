@@ -40,7 +40,7 @@
       "status": "completed",
       "summary": "escalate_to_human(z.object({ summary: z.string().min(1).max(1000) }))를 추가하고 Slack 본문을 conversationId + wrapUserInput(summary, 1000) + 스레드 답장 안내로 구성했으며 userId별 에스컬레이션 리미터를 1시간당 3회로 연결했다.",
       "started_at": "2026-09-12T20:05:33+0900",
-      "completed_at": "2026-09-12T20:14:48+0900"
+      "completed_at": "2026-09-12T20:15:54+0900"
     },
     {
       "step": 5,
