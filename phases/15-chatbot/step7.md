@@ -10,6 +10,7 @@
 - `/src/app/api/reservations/route.ts:60-75` — `getUserIdFromRequest` 사용과 401 처리
 - `/src/app/api/reservations/[id]/route.ts:5-8` — `sanitizeReservation()`. `userId`를 지우는 형태
 - `/src/app/api/reservations/[id]/route.ts:12-35` — 동적 세그먼트의 `params: Promise<...>` 타입과 `NOT_FOUND:`/`FORBIDDEN:` prefix를 상태 코드로 옮기는 형태
+- `/src/app/api/sessions/[id]/snapshot/route.ts` — 아래 GET 시그니처와 **같은 형태**의 `context: { params: Promise<...> }`. 동적 세그먼트 라우트의 직접 선례다
 - `/src/lib/cookie.ts:1-19` — `USER_ID_COOKIE_NAME`, `getUserIdFromRequest`. **`userId`의 유일한 출처다**
 - `/src/lib/rate-limit.ts` — `createRateLimiter({ windowMs, maxRequests })`
 - `/src/lib/basic-auth.ts:90` — `isProtectedPath`. `/api/admin/*`가 Basic 게이트 뒤라는 사실
@@ -63,8 +64,10 @@ export async function POST(request: Request): Promise<Response>;
    없으면 `create(userId)`. `NOT_FOUND:`는 404, `FORBIDDEN:`는 403
 6. **손님 턴 저장** — `appendTurns(id, userId, [{ role: "user", content: message }])`
 7. **키 분기** — `process.env.ANTHROPIC_API_KEY`가 없으면 500이 아니라
-   **200 + 폴백 스트림**이다. `buildTicketChatFallback()` 문구를 `notice` 턴으로 저장하고
-   `createTextStream()`으로 내려보낸다. 기존 세 라우트가 모두 이 정책이다
+   **200 + 폴백 스트림**이다. `buildTicketChatFallback()`(`adapters/ticket/prompt.ts`) 문구를
+   `notice` 턴으로 저장하고 `createTextStream()`으로 내려보낸다. 기존 세 라우트가 모두 이
+   정책이다. `createTextStream()`은 **`@/chatbot/core/fallback`에서 import한다** —
+   `agent/route.ts:53`에 같은 이름의 로컬 사본이 있지만 그것을 다시 만들지 마라
 8. **스트림** — `createChatStream({ apiKey, model: CHAT_MODEL, maxTokens: CHAT_MAX_TOKENS,
    maxIterations: CHAT_MAX_ITERATIONS, systemPrompt: buildTicketChatSystemPrompt(),
    tools: createTicketChatTools({ ...stores, userId }), history })`
@@ -73,6 +76,9 @@ export async function POST(request: Request): Promise<Response>;
 저장 전 대화에서 뽑으면 방금 받은 질문이 통째로 빠져 모델이 엉뚱한 답을 한다.
 `role`이 `"user"`/`"assistant"`인 턴만 골라 `ChatHistoryTurn[]`으로 옮긴다 —
 `operator`·`notice` 턴은 모델에 보내지 않는다.
+
+**POST의 에러 응답 본문은 plain text다** — `agent/route.ts`와 같은 형태(`"요청이 너무
+많습니다."`)로 401·400·404·403 전부 통일한다. JSON 본문은 GET 응답에만 쓴다.
 
 **응답 헤더**는 기존 세 라우트와 같다.
 
@@ -83,6 +89,8 @@ export async function POST(request: Request): Promise<Response>;
 여기에 `X-Conversation-Id: <id>`를 더한다. 본문이 plain text 스트림이라 JSON으로 id를 줄
 자리가 없고, 클라이언트는 이 값으로 폴링 대상을 안다. **본문 앞뒤에 id나 메타데이터를
 섞지 마라** — 본문은 그대로 화면에 렌더되는 답변 텍스트다.
+**폴백 스트림(7번)에도 같은 헤더를 싣는다.** 키가 없는 환경에서도 클라이언트는 폴링 대상을
+알아야 하고, 라우트 테스트가 폴백 경로로만 이 헤더를 확인하기 때문이다.
 
 **답변 저장**: 엔진이 내놓는 스트림을 `TransformStream`으로 통과시키며 텍스트를 모으고,
 `flush`에서 `appendTurns(id, userId, [{ role: "assistant", content: 모은 텍스트 }])`를 부른다.
@@ -179,5 +187,6 @@ GET 라우트에 판정을 더한다.
 - 답변 본문 앞뒤에 `conversationId`나 JSON 메타데이터를 섞지 마라. 이유: 본문은 그대로 화면에 렌더되는 답변 텍스트다. 메타데이터는 `X-Conversation-Id` 헤더로 보낸다.
 - 레이트리밋을 GET에 3회/분으로 걸지 마라. 이유: 3초 폴링은 분당 20회다. 정상 사용이 즉시 429에 걸린다.
 - `vi.mock("@anthropic-ai/sdk")`를 쓰지 마라. 이유: 이 저장소는 SDK를 목킹하지 않는다. 라우트 테스트는 키를 지워 폴백 경로만 본다.
+- `src/components/seat/__tests__/seat-render-count.test.tsx`의 타입 오류를 고치려 들지 마라. 이유: 이 step 이전부터 있던 것이고 `npm run build`와 AC 커맨드는 통과한다. 범위 밖 변경이다.
 - 새 의존성을 추가하지 마라.
 - 기존 테스트를 깨뜨리지 마라.

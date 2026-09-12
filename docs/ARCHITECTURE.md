@@ -212,7 +212,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
 새 AI 라우트를 만들 때 기본은 게이트 뒤다 — 운영 데이터를 다루면서 공개 배치를 복제하면 매출·재고가 그대로 공개된다. 관람객 챗봇만 예외인데, 익명 손님이 쓰는 창구라 게이트 뒤로 갈 수 없기 때문이다. 대신 내보내는 범위를 **좌석 화면이 이미 공개하는 것**(공연·회차·좌석 현황 집계 — 매출·판매율은 제외)으로 묶었다 (ADR-008).
 
-공통으로 거는 최소 방어는 IP당 rate limit이다. 값은 용도에 따라 다르다 — 버튼 한 번에 질문 하나인 세 라우트는 **분당 3회**, 턴이 빠르게 쌓이는 `/api/chat`은 **분당 10회**, 3초 폴링을 받는 `/api/chat/[conversationId]`는 **분당 60회**다. `/api/chat/slack/events`에는 걸지 않는다 — 슬랙의 출발 IP가 고정이 아니고 서명이 이미 게이트다.
+공통으로 거는 최소 방어는 IP당 rate limit이다. 값은 용도에 따라 다르다 — 버튼 한 번에 질문 하나인 세 라우트는 **분당 3회**, 턴이 빠르게 쌓이는 `/api/chat`은 **분당 10회**, 3초 폴링을 받는 `/api/chat/[conversationId]`는 **분당 60회**다. `/api/chat`의 POST만 IP와 `userId` 두 축에 같은 값을 건다 — IP만 걸면 같은 사람이 IP를 바꿔가며 새 대화를 계속 만들 수 있다. `/api/chat/slack/events`에는 걸지 않는다 — 슬랙의 출발 IP가 고정이 아니고 서명이 이미 게이트다.
 
 `max_tokens` 상한은 설명·요약이 600(`AI_MAX_TOKENS`), Tool 루프를 도는 `/api/admin/agent`와 `/api/chat`이 2000(각각 `AGENT_MAX_TOKENS`, `CHAT_MAX_TOKENS`)이다. 모델은 **Haiku 4.5**가 기본이고, 무엇을 조회할지 스스로 골라야 하는 두 곳 — `/api/admin/agent`와 `/api/chat` — 만 **Opus 5**다 (ADR-007, ADR-008). `/api/chat`은 무인증 공개 라우트에 Opus 5를 거는 의도된 예외이고, 레이트리밋이 유일한 비용 상한이다. 모델 ID는 `CHAT_MODEL` 상수 하나에 있어 한 줄로 내릴 수 있다. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 
