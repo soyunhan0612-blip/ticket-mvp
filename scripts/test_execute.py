@@ -197,10 +197,12 @@ class TestLoadGuardrails:
         docs = tmp_project / "docs"
         (docs / "PROGRESS.md").write_text("# Progress - Day 9 journal entry", encoding="utf-8")
         (docs / "PERF_MEASUREMENT.md").write_text("# Perf - manual steps", encoding="utf-8")
+        (docs / "TEST_SCENARIOS.md").write_text("# Scenarios - human walkthrough", encoding="utf-8")
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
         assert "Day 9 journal entry" not in result
         assert "manual steps" not in result
+        assert "human walkthrough" not in result
 
     def test_keeps_docs_not_in_exclude_list(self, executor, tmp_project):
         (tmp_project / "docs" / "PROGRESS.md").write_text("# Progress - journal", encoding="utf-8")
