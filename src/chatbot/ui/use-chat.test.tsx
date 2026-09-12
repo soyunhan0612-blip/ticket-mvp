@@ -85,7 +85,7 @@ describe("useChat", () => {
       )
       .mockResolvedValueOnce(createConversationResponse({ turns: storedTurns }));
     const { result } = renderHook(() => useChat(OPTIONS));
-    let sendPromise!: Promise<void>;
+    let sendPromise!: Promise<boolean>;
 
     act(() => {
       sendPromise = result.current.send("질문");
@@ -123,7 +123,7 @@ describe("useChat", () => {
       )
       .mockReturnValueOnce(pendingGet);
     const { result } = renderHook(() => useChat(OPTIONS));
-    let sendPromise!: Promise<void>;
+    let sendPromise!: Promise<boolean>;
 
     act(() => {
       sendPromise = result.current.send("질문");
@@ -167,6 +167,22 @@ describe("useChat", () => {
     expect(sessionStorage.getItem(CHAT_CONVERSATION_STORAGE_KEY)).toBe(
       "conversation-1",
     );
+  });
+
+  it("손님 턴이 화면에 오르기 전에 실패하면 send가 false를 돌려준다", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("요청이 너무 많습니다.", { status: 429 }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    let sent!: boolean;
+    await act(async () => {
+      sent = await result.current.send("질문");
+    });
+
+    expect(sent).toBe(false);
+    expect(result.current.turns).toEqual([]);
+    expect(result.current.error).toBeInstanceOf(Error);
   });
 
   it("언마운트하면 진행 중인 요청의 AbortController를 중단한다", async () => {

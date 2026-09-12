@@ -143,8 +143,12 @@ function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
           const normalizedMessage = message.trim();
           if (normalizedMessage.length === 0 || isStreaming) return;
 
+          // 낙관적으로 비우되, 손님 턴이 화면에 오르지 못한 실패는 되돌린다.
+          // 그러지 않으면 429·500에서 친 문장이 어디에도 남지 않는다.
           setMessage("");
-          void send(normalizedMessage);
+          void send(normalizedMessage).then((sent) => {
+            if (!sent) setMessage(normalizedMessage);
+          });
         }}
       >
         <TextInput

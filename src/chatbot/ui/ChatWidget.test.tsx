@@ -5,14 +5,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CHAT_MESSAGE_LIMIT } from "@/chatbot/adapters/ticket/prompt";
 
 import { ChatWidget } from "./ChatWidget";
+import type { ChatTurnView } from "./use-chat";
 
 const pathnameState = vi.hoisted(() => ({ value: "/shows" }));
+// 필드마다 타입을 못박아 둔다. 훅의 반환 타입이 바뀌면 이 목이 먼저 깨져야 한다
+// (`as UseChatResult`로 한 번에 캐스팅하면 send/reset의 mock 메서드를 잃는다).
 const chatState = vi.hoisted(() => ({
-  turns: [],
+  turns: [] as ChatTurnView[],
   isStreaming: false,
   awaitingOperator: false,
-  error: null,
-  send: vi.fn(),
+  error: null as Error | null,
+  send: vi.fn(async (_message: string) => true),
   reset: vi.fn(),
 }));
 
@@ -32,6 +35,7 @@ describe("ChatWidget", () => {
     chatState.awaitingOperator = false;
     chatState.error = null;
     chatState.send.mockReset();
+    chatState.send.mockResolvedValue(true);
     chatState.reset.mockReset();
   });
 
@@ -72,6 +76,30 @@ describe("ChatWidget", () => {
       screen.getByText('<script>alert("xss")</script> 상담원 답변'),
     ).toHaveClass("whitespace-pre-wrap");
     expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("전송이 실패하면 입력한 문장을 되돌린다", async () => {
+    chatState.send.mockResolvedValue(false);
+    render(<ChatWidget />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    const input = screen.getByRole("textbox", { name: "문의 내용" });
+    await userEvent.type(input, "회차가 언제인가요");
+    await userEvent.click(screen.getByRole("button", { name: "보내기" }));
+
+    expect(chatState.send).toHaveBeenCalledWith("회차가 언제인가요");
+    expect(input).toHaveValue("회차가 언제인가요");
+  });
+
+  it("전송에 성공하면 입력을 비운 채로 둔다", async () => {
+    render(<ChatWidget />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    const input = screen.getByRole("textbox", { name: "문의 내용" });
+    await userEvent.type(input, "좌석이 얼마나 남았나요");
+    await userEvent.click(screen.getByRole("button", { name: "보내기" }));
+
+    expect(input).toHaveValue("");
   });
 
   it("입력을 서버 상한으로 제한하고 남은 글자 수를 표시한다", async () => {

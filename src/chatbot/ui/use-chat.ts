@@ -20,7 +20,11 @@ export interface UseChatResult {
   isStreaming: boolean;
   awaitingOperator: boolean;
   error: Error | null;
-  send: (message: string) => Promise<void>;
+  /**
+   * 손님 턴이 화면에 올라가기 전에 실패하면 `false`를 돌려준다. 친 문장이 어디에도
+   * 남지 않은 상태이므로, 호출자는 이 값을 보고 입력을 되돌려야 한다.
+   */
+  send: (message: string) => Promise<boolean>;
   reset: () => void;
 }
 
@@ -179,9 +183,9 @@ export function useChat(options: UseChatOptions): UseChatResult {
     };
   }, []);
 
-  const send = useCallback(async (message: string): Promise<void> => {
+  const send = useCallback(async (message: string): Promise<boolean> => {
     const normalizedMessage = message.trim().slice(0, messageLimitRef.current);
-    if (normalizedMessage.length === 0) return;
+    if (normalizedMessage.length === 0) return true;
 
     abortRef.current?.abort();
     const abortController = new AbortController();
@@ -197,6 +201,9 @@ export function useChat(options: UseChatOptions): UseChatResult {
       createdAt: Date.now(),
     };
     const assistantTurnId = createLocalTurnId("assistant");
+    // 손님 턴이 transcript에 올라간 뒤의 실패는 친 문장이 화면에 남아 있으므로
+    // 되돌릴 필요가 없다. 올라가기 전의 실패만 호출자에게 알린다.
+    let userTurnVisible = false;
 
     try {
       const response = await fetch(sendPathRef.current, {
@@ -209,7 +216,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
         signal: abortController.signal,
       });
 
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) return true;
       if (!response.ok || !response.body) {
         // POST 실패 본문은 text/plain이다. JSON으로 파싱하지 않고 상태만 보존한다.
         throw new ChatHttpError(response.status);
@@ -234,6 +241,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
           createdAt: Date.now(),
         },
       ]);
+      userTurnVisible = true;
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -241,7 +249,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted) return true;
 
         const chunk = decoder.decode(value, { stream: true });
         setTurns((current) =>
@@ -253,7 +261,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
         );
       }
 
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) return true;
 
       const finalChunk = decoder.decode();
       setTurns((current) =>
@@ -268,18 +276,20 @@ export function useChat(options: UseChatOptions): UseChatResult {
         conversationPathRef.current(responseConversationId),
         abortController.signal,
       );
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) return true;
 
       setTurns(snapshot.conversation.turns);
       setAwaitingOperator(snapshot.awaitingOperator);
+      return true;
     } catch (caught) {
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted) return true;
 
       setError(
         caught instanceof Error
           ? caught
           : new Error("Chat request failed"),
       );
+      return userTurnVisible;
     } finally {
       if (abortRef.current === abortController) {
         abortRef.current = null;
