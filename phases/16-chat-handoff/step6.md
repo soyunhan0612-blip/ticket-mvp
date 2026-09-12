@@ -11,7 +11,7 @@
 - `/phases/15-chatbot/index.json`, `/phases/16-chat-handoff/index.json` — **진행 상태의 단일 출처.** README 표를 여기와 어긋나게 쓰지 마라
 - `/src/chatbot/ui/use-chat.ts` — **phase 15 step 8에서 생성됨.** 폴링을 더한다. `@/` import가 0건이어야 한다는 제약이 그대로 유지된다
 - `/src/chatbot/ui/__tests__/no-domain-imports.test.ts` — **phase 15 step 8에서 생성됨.** 이 파일의 화이트리스트를 넘지 마라
-- `/src/chatbot/ui/ChatWidget.tsx` — **phase 15 step 8에서 생성됨.** `operator`·`notice` 렌더 분기가 비어 있다
+- `/src/chatbot/ui/ChatWidget.tsx` — **phase 15 step 8에서 생성됨.** `TURN_LABELS`에 `operator: "상담원"`·`notice: "안내"`가 **이미 있고 렌더된다.** 이 step에서 남은 것은 3초 폴링과 대기 중 표시다
 - `/src/hooks/use-seat-snapshot.ts` — 폴링 관용구와 간격 상수(`SNAPSHOT_REFETCH_INTERVAL = 3_000`)
 - `/src/app/api/chat/[conversationId]/route.ts` — **step 4에서 확장됨.** 응답의 `awaitingOperator`
 - `/src/components/seller/AiDescriptionGenerator.tsx:86` — **주석에 `dangerouslySetInnerHTML`이라는 단어가 있다.** 순진한 grep으로 검사를 짜면 거짓 실패한다
@@ -50,9 +50,9 @@ phase 15 step 8의 `useChat`은 마운트 시와 스트림 종료 후에만 `GET
 
 ### `src/chatbot/ui/ChatWidget.tsx` 수정
 
-- `operator` 턴에 **"상담원" 텍스트 라벨**을 붙인다. `docs/UI_GUIDE.md`가 배지를 금지하므로
-  배지 컴포넌트를 만들지 마라
-- `notice` 턴을 안내 문구 스타일로 보여준다
+- `operator`·`notice` 라벨은 **이미 붙어 있다**(`TURN_LABELS`). 다시 만들지 말고 그대로 쓴다.
+  `docs/UI_GUIDE.md`가 배지를 금지하므로 배지 컴포넌트를 만들지 마라
+- `useChat`의 `send`는 `Promise<boolean>`이다(전송 실패 시 입력 복원용). **반환형을 바꾸지 마라**
 - 상담원을 기다리는 동안 그 사실을 화면에 알린다
 - 여전히 `whitespace-pre-wrap` plain text다. **상담원이 쓴 문장도 사용자 입력이다**
 
@@ -90,8 +90,9 @@ phase 15 step 8의 `useChat`은 마운트 시와 스트림 종료 후에만 `GET
 
 ### `README.md` 진행표 갱신
 
-"Day" 표에 두 행을 기존 형식으로 더한다. `phases/*/index.json`이 진행 상태의 단일 출처이므로
-거기 값과 어긋나게 쓰지 마라.
+"Day" 표에 **16 행만** 기존 형식으로 더한다 — **15 행은 이미 있다.** 표 아래의
+"Day 10~15는 …" 범위 문장도 10~16으로 고친다. `phases/*/index.json`이 진행 상태의
+단일 출처이므로 거기 값과 어긋나게 쓰지 마라.
 
 ### 테스트
 

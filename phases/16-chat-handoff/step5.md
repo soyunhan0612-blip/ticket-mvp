@@ -71,6 +71,10 @@ export async function POST(request: Request): Promise<Response>;
 
 ### `src/app/api/chat/slack/events/route.test.ts` (먼저)
 
+환경변수는 `vi.stubEnv`로 세우고 `afterEach`에서 되돌린다. 성공 경로에는
+`SLACK_SIGNING_SECRET`과 `SLACK_CHANNEL_ID`가 둘 다 필요하다 — `.env.local`에 없고
+vitest는 그 파일을 읽지 않는다.
+
 - 서명이 맞고 스레드 답장이면 턴이 추가된다
 - **서명이 틀리면 401이고 대화가 바뀌지 않는다**
 - `SLACK_SIGNING_SECRET`이 비어 있으면 401 (fail-closed)

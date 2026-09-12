@@ -76,12 +76,18 @@ export function createEscalationTool(deps: EscalationToolDeps): ChatToolDescript
 2. `conversationStore.get(conversationId, userId)`로 현재 상태를 읽는다.
    `isAwaitingOperator(...)`가 `true`면 `{ escalated: false, reason: "already_waiting" }`
 3. 슬랙 메시지 본문을 만든다. `summary`는 **반드시 `wrapUserInput()`으로 감싼다** —
-   모델이 손님 말을 옮겨 적은 값이라 신뢰 입력이 아니다. 본문에 `conversationId`와
+   모델이 손님 말을 옮겨 적은 값이라 신뢰 입력이 아니다. **상한을 인자로 명시해**
+   `wrapUserInput(summary, <입력 스키마의 상한>)`으로 부른다 — 기본값이 100자라
+   그대로 쓰면 상담원이 받는 본문이 조용히 잘린다. 본문에 `conversationId`와
    **"이 메시지에 스레드로 답장하면 손님 화면에 전달됩니다"**를 적어라. 상담원이 스레드를
    쓰지 않으면 답장이 연결되지 않는다
 4. `deps.postMessage(text)` → `ts`
 5. `conversationStore.startEscalation(conversationId, userId, ts, deps.now())`
 6. `{ escalated: true }`
+
+**`run`의 반환 타입은 `Promise<string>`이다** (`src/chatbot/core/types.ts`의
+`ChatToolDescriptor`). 위 객체들은 전부 `JSON.stringify(...)`로 감싸 돌려준다 — 조회 툴
+다섯 개가 같은 형태다. 객체를 그대로 돌려주면 TS strict에서 컴파일되지 않는다.
 
 **어느 단계에서 실패해도 throw하지 마라.** `get`은 `NOT_FOUND:`/`FORBIDDEN:`을 throw할 수
 있고 슬랙도 던진다. `try`/`catch`로 감싸 `{ escalated: false, reason: "unavailable" }`을
@@ -98,6 +104,11 @@ export function buildTicketChatSystemPrompt(options: { canEscalate: boolean }): 
 `canEscalate`가 `true`면 "조회로 답할 수 없는 문의는 `escalate_to_human`으로 상담원에게
 넘긴다"는 문장을 더한다. `false`면 그 문장 대신 "상담원 연결은 현재 제공되지 않는다"를 넣어라.
 슬랙 설정이 없는 환경에서 모델이 있지도 않은 툴을 약속하면 안 된다.
+
+시그니처가 바뀌므로 **`prompt.test.ts`의 기존 호출도 함께 갱신하라.** 이것은 금지사항의
+"기존 테스트를 깨뜨리지 마라"에 해당하지 않는다 — 계약 변경에 테스트를 맞추는 일이다.
+또 `prompt.ts`는 `TICKET_CHAT_READ_ONLY_SOURCE_PATHS`에 들어 있어, 새로 넣는 문장에
+`create`·`cancel`·`hold`·`release`가 단어로 등장하면 read-only 테스트가 즉시 실패한다.
 
 기존 호출자(phase 15 step 7의 POST 라우트)를 함께 고쳐라.
 

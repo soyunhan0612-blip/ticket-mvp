@@ -6,7 +6,7 @@
 
 - `/docs/ARCHITECTURE.md` — "보안 경계" 절
 - `/docs/ADR.md` — ADR-007의 트레이드오프. 이 저장소가 인증을 어디까지 단순화했는지
-- `/src/lib/basic-auth.ts` — **전문.** 기대 자격증명이 비어 있으면 거부하는 fail-closed 가드(`:18-26`)가 이 step이 따라야 할 선례다. 다만 `:55`의 자격증명 비교는 평범한 `===`다 — **이 저장소에 상수 시간 비교는 아직 없고, 이 step이 첫 사례가 된다.** `basic-auth.ts`를 고치려 들지 마라
+- `/src/lib/basic-auth.ts` — **전문.** 기대 자격증명이 비어 있으면 거부하는 fail-closed 가드(`:18-26`)가 이 step이 따라야 할 선례다. 다만 `:41`의 자격증명 비교는 평범한 `===`다 — **이 저장소에 상수 시간 비교는 아직 없고, 이 step이 첫 사례가 된다.** `basic-auth.ts`를 고치려 들지 마라
 - `/src/lib/basic-auth.test.ts` — 인증 순수 함수를 테스트하는 이 저장소의 형태
 - `/src/lib/rate-limit.ts` — 순수 함수 + 팩토리 스타일
 - `/src/lib/sellout-alert.ts` — 임계값을 **인자로 받아** 판정을 결정적으로 만드는 순수 함수의 서술 스타일
