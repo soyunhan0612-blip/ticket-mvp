@@ -24,7 +24,7 @@
       "status": "completed",
       "summary": "createChatStream(config: ChatEngineConfig): ReadableStream<Uint8Array>를 추가해 바깥 iteration 스트림·안쪽 이벤트의 중첩 루프로 text delta를 즉시 전달하고 finalMessage()의 마지막 stop_reason을 처리하며, apiKey가 비었거나 공백뿐이면 controller.error()로 종료하도록 했다.",
       "started_at": "2026-09-12T13:45:10+0900",
-      "completed_at": "2026-09-12T13:51:08+0900"
+      "completed_at": "2026-09-12T13:52:48+0900"
     },
     {
       "step": 3,
