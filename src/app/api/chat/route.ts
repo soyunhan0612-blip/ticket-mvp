@@ -86,7 +86,7 @@ function conversationErrorResponse(error: unknown): Response | null {
   return null;
 }
 
-function createHistory(conversation: Conversation): ChatHistoryTurn[] {
+export function createHistory(conversation: Conversation): ChatHistoryTurn[] {
   return conversation.turns.flatMap((turn): ChatHistoryTurn[] => {
     if (turn.role === "user") {
       return [{
@@ -101,7 +101,7 @@ function createHistory(conversation: Conversation): ChatHistoryTurn[] {
   });
 }
 
-function persistAssistantAnswer(
+export function persistAssistantAnswer(
   stream: ReadableStream<Uint8Array>,
   conversationId: string,
   userId: string,
@@ -118,9 +118,14 @@ function persistAssistantAnswer(
       answer += decoder.decode();
       // 클라이언트가 스트림 도중 연결을 닫으면 flush가 실행되지 않아 답변 턴이
       // 저장되지 않을 수 있다. 다음 요청의 연속 user 턴은 Messages API가 합치므로 허용한다.
-      await getConversationStore().appendTurns(conversationId, userId, [
-        { role: "assistant", content: answer },
-      ]);
+      try {
+        await getConversationStore().appendTurns(conversationId, userId, [
+          { role: "assistant", content: answer },
+        ]);
+      } catch {
+        // 저장 실패로 flush가 reject하면 readable이 error로 닫혀, 답변을 이미 다 받은
+        // 클라이언트까지 네트워크 오류를 보게 된다. 전달을 저장보다 우선한다.
+      }
     },
   }));
 }

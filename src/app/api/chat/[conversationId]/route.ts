@@ -17,9 +17,14 @@ function getClientIp(request: Request): string {
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
-function sanitizeConversation(conversation: Conversation) {
-  const { userId, escalation, ...sanitized } = conversation;
-  return sanitized;
+export function sanitizeConversation(conversation: Conversation) {
+  // 화이트리스트로 재구성한다. phase 16이 Conversation에 필드를 더해도
+  // 여기에 적지 않는 한 응답에 실리지 않는다.
+  return {
+    id: conversation.id,
+    turns: conversation.turns,
+    updatedAt: conversation.updatedAt,
+  };
 }
 
 export async function GET(

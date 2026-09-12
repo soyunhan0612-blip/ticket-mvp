@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { getConversationStore } from "@/services";
+import type { Conversation } from "@/types";
 
-import { dynamic, GET } from "./route";
+import { dynamic, GET, sanitizeConversation } from "./route";
 
 function makeRequest(
   conversationId: string,
@@ -129,5 +130,26 @@ describe("GET /api/chat/[conversationId]", () => {
 
     expect(response.status).toBe(429);
     expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
+  });
+});
+
+describe("sanitizeConversation", () => {
+  it("keeps only the client-facing fields", () => {
+    const sanitized = sanitizeConversation({
+      id: "conversation",
+      userId: "owner",
+      turns: [],
+      escalation: {
+        askedAt: 1,
+        slackThreadTs: "1700000000.000100",
+        autoReplySentAt: null,
+        answeredAt: null,
+      },
+      updatedAt: 42,
+      // phase 16이 Conversation에 필드를 더해도 응답에 실리면 안 된다
+      slackChannelId: "C0123456789",
+    } as unknown as Conversation);
+
+    expect(sanitized).toEqual({ id: "conversation", turns: [], updatedAt: 42 });
   });
 });
