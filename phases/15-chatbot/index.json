@@ -69,7 +69,10 @@
     {
       "step": 8,
       "name": "chat-ui",
-      "status": "pending"
+      "status": "completed",
+      "summary": "useChat이 turns, isStreaming, awaitingOperator, error, send, reset을 반환하도록 구현하고 ChatWidget을 src/app/layout.tsx의 Providers 내부에 부착했으며, 패널은 <dialog>가 아닌 일반 fixed 패널로 구성했다.",
+      "started_at": "2026-09-12T17:40:10+0900",
+      "completed_at": "2026-09-12T18:09:58+0900"
     }
   ],
   "created_at": "2026-09-12T13:01:11+0900"

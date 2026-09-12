@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getConversationStore } from "@/services";
 import type { Conversation } from "@/types";
 
-import { dynamic, GET, sanitizeConversation } from "./route";
+import { dynamic, GET } from "./route";
 
 function makeRequest(
   conversationId: string,
@@ -23,6 +23,10 @@ function makeContext(conversationId: string) {
 }
 
 describe("GET /api/chat/[conversationId]", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("forces dynamic rendering for operator reply polling", () => {
     expect(dynamic).toBe("force-dynamic");
   });
@@ -110,6 +114,34 @@ describe("GET /api/chat/[conversationId]", () => {
     expect(JSON.stringify(body)).not.toContain(userId);
   });
 
+  it("keeps future private conversation fields out of the response", async () => {
+    const userId = `future-field-user-${crypto.randomUUID()}`;
+    vi.spyOn(getConversationStore(), "get").mockResolvedValue({
+      id: "conversation",
+      userId,
+      turns: [],
+      escalation: null,
+      updatedAt: 42,
+      slackChannelId: "C0123456789",
+    } as unknown as Conversation);
+
+    const response = await GET(
+      makeRequest(
+        "conversation",
+        `future-field-${crypto.randomUUID()}`,
+        userId,
+      ),
+      makeContext("conversation"),
+    );
+    const body = await response.json() as Record<string, unknown>;
+
+    expect(body).toEqual({
+      conversation: { id: "conversation", turns: [], updatedAt: 42 },
+      awaitingOperator: false,
+    });
+    expect(JSON.stringify(body)).not.toContain("slackChannelId");
+  });
+
   it("returns 429 with Retry-After after sixty polls from one IP", async () => {
     const store = getConversationStore();
     const userId = `get-rate-limit-user-${crypto.randomUUID()}`;
@@ -130,26 +162,5 @@ describe("GET /api/chat/[conversationId]", () => {
 
     expect(response.status).toBe(429);
     expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
-  });
-});
-
-describe("sanitizeConversation", () => {
-  it("keeps only the client-facing fields", () => {
-    const sanitized = sanitizeConversation({
-      id: "conversation",
-      userId: "owner",
-      turns: [],
-      escalation: {
-        askedAt: 1,
-        slackThreadTs: "1700000000.000100",
-        autoReplySentAt: null,
-        answeredAt: null,
-      },
-      updatedAt: 42,
-      // phase 16이 Conversation에 필드를 더해도 응답에 실리면 안 된다
-      slackChannelId: "C0123456789",
-    } as unknown as Conversation);
-
-    expect(sanitized).toEqual({ id: "conversation", turns: [], updatedAt: 42 });
   });
 });

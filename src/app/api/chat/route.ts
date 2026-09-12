@@ -86,7 +86,7 @@ function conversationErrorResponse(error: unknown): Response | null {
   return null;
 }
 
-export function createHistory(conversation: Conversation): ChatHistoryTurn[] {
+function createHistory(conversation: Conversation): ChatHistoryTurn[] {
   return conversation.turns.flatMap((turn): ChatHistoryTurn[] => {
     if (turn.role === "user") {
       return [{
@@ -101,7 +101,7 @@ export function createHistory(conversation: Conversation): ChatHistoryTurn[] {
   });
 }
 
-export function persistAssistantAnswer(
+function persistAssistantAnswer(
   stream: ReadableStream<Uint8Array>,
   conversationId: string,
   userId: string,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { ChatWidget } from "@/chatbot/ui/ChatWidget";
 import { NavBar } from "@/components/navigation/NavBar";
 import { Providers } from "@/components/providers";
 import { isOperatorSession } from "@/lib/auth-session";
@@ -59,7 +60,10 @@ export default async function RootLayout({
 
         {/* Band fill이 flex-1로 늘어나려면 이 래퍼부터 세로 flex여야 한다 */}
         <div className="flex flex-1 flex-col">
-          <Providers>{children}</Providers>
+          <Providers>
+            {children}
+            <ChatWidget />
+          </Providers>
         </div>
 
         <footer className="bg-ink text-on-dark">
