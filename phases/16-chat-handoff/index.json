@@ -5,7 +5,10 @@
     {
       "step": 0,
       "name": "slack-signature",
-      "status": "pending"
+      "status": "completed",
+      "summary": "verifySlackSignature(input: SlackSignatureInput): boolean; SLACK_TIMESTAMP_TOLERANCE_MS=300_000.",
+      "started_at": "2026-09-12T19:25:54+0900",
+      "completed_at": "2026-09-12T19:31:30+0900"
     },
     {
       "step": 1,
@@ -37,5 +40,6 @@
       "name": "handoff-ui-docs",
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-09-12T19:25:54+0900"
 }
