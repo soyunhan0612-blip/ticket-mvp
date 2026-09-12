@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "escalation-core",
-      "status": "pending"
+      "status": "completed",
+      "summary": "shouldSendAutoReply(escalation: EscalationSnapshot | null, now: number): boolean; isAwaitingOperator(escalation: EscalationSnapshot | null): boolean; AUTO_REPLY_DELAY_MS=60_000이며 정확히 1분 경계에서 미응답·미안내 escalation은 true.",
+      "started_at": "2026-09-12T19:40:52+0900",
+      "completed_at": "2026-09-12T19:48:39+0900"
     },
     {
       "step": 3,
