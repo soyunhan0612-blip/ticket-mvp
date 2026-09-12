@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "handoff-ui-docs",
-      "status": "pending"
+      "status": "completed",
+      "summary": "대기 중에만 3초 폴링해 상담원·안내 턴을 동기화하고 Slack 설정 절차를 문서화했다; 사용자는 Slack 앱에 chat:write와 채널별 history 스코프를 부여하고 봇 초대·Request URL 등록·환경변수 설정·스레드 답장 및 n8n 알림 검증을 수행해야 한다.",
+      "started_at": "2026-09-12T20:25:49+0900",
+      "completed_at": "2026-09-12T20:36:50+0900"
     }
   ],
   "created_at": "2026-09-12T19:25:54+0900"

@@ -51,6 +51,7 @@ describe("useChat", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -227,5 +228,118 @@ describe("useChat", () => {
     expect(result.current.turns).toEqual([]);
     expect(result.current.awaitingOperator).toBe(false);
     expect(result.current.error).toBeNull();
+  });
+
+  it("awaitingOperator가 true인 동안 3초마다 서버 턴으로 동기화하고 false가 되면 멈춘다", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem(
+      CHAT_CONVERSATION_STORAGE_KEY,
+      "conversation-1",
+    );
+    const initialTurns: ChatTurnView[] = [
+      { id: "notice-1", role: "notice", content: "연결 중", createdAt: 1 },
+    ];
+    const waitingTurns: ChatTurnView[] = [
+      ...initialTurns,
+      { id: "notice-2", role: "notice", content: "안내", createdAt: 2 },
+    ];
+    const answeredTurns: ChatTurnView[] = [
+      ...waitingTurns,
+      {
+        id: "operator-1",
+        role: "operator",
+        content: "상담원 답변",
+        createdAt: 3,
+      },
+    ];
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        createConversationResponse({
+          turns: initialTurns,
+          awaitingOperator: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createConversationResponse({
+          turns: waitingTurns,
+          awaitingOperator: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        createConversationResponse({
+          turns: answeredTurns,
+          awaitingOperator: false,
+        }),
+      );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.awaitingOperator).toBe(true);
+    expect(result.current.turns).toEqual(initialTurns);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_999);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.awaitingOperator).toBe(true);
+    expect(result.current.turns).toEqual(waitingTurns);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_999);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.awaitingOperator).toBe(false);
+    expect(result.current.turns).toEqual(answeredTurns);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("대기 중 폴링 요청을 언마운트에서 중단하고 반복 예약을 정리한다", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem(
+      CHAT_CONVERSATION_STORAGE_KEY,
+      "conversation-1",
+    );
+    let pollingSignal: AbortSignal | undefined;
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        createConversationResponse({ awaitingOperator: true }),
+      )
+      .mockImplementationOnce((_input, init) => {
+        pollingSignal = init?.signal ?? undefined;
+        return new Promise<Response>(() => undefined);
+      });
+    const { unmount } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+    expect(pollingSignal).toBeDefined();
+
+    unmount();
+
+    expect(pollingSignal?.aborted).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

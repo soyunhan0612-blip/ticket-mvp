@@ -38,6 +38,7 @@ interface ConversationResponse {
 }
 
 export const CHAT_CONVERSATION_STORAGE_KEY = "chat-conversation-id";
+export const CHAT_REFETCH_INTERVAL = 3_000;
 
 const DEFAULT_SEND_PATH = "/api/chat";
 const defaultConversationPath = (conversationId: string): string =>
@@ -182,6 +183,65 @@ export function useChat(options: UseChatOptions): UseChatResult {
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!awaitingOperator) return;
+
+    const conversationId = conversationIdRef.current;
+    if (!conversationId) return;
+
+    let pollingController: AbortController | null = null;
+    let requestInFlight = false;
+
+    const pollConversation = async (): Promise<void> => {
+      if (requestInFlight) return;
+
+      const controller = new AbortController();
+      pollingController = controller;
+      requestInFlight = true;
+
+      try {
+        const snapshot = await fetchConversation(
+          conversationPathRef.current(conversationId),
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+
+        setTurns(snapshot.conversation.turns);
+        setAwaitingOperator(snapshot.awaitingOperator);
+        setError(null);
+      } catch (caught: unknown) {
+        if (controller.signal.aborted) return;
+
+        if (isMissingConversation(caught)) {
+          conversationIdRef.current = null;
+          removeStoredConversationId();
+          setTurns([]);
+          setAwaitingOperator(false);
+          setError(null);
+          return;
+        }
+
+        setError(
+          caught instanceof Error
+            ? caught
+            : new Error("Chat conversation polling failed"),
+        );
+      } finally {
+        if (pollingController === controller) pollingController = null;
+        requestInFlight = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void pollConversation();
+    }, CHAT_REFETCH_INTERVAL);
+
+    return () => {
+      window.clearInterval(intervalId);
+      pollingController?.abort();
+    };
+  }, [awaitingOperator]);
 
   const send = useCallback(async (message: string): Promise<boolean> => {
     const normalizedMessage = message.trim().slice(0, messageLimitRef.current);

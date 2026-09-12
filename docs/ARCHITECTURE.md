@@ -63,6 +63,17 @@ POST /api/holds → SeatStore.hold (Lua atomic) → 낙관적 업데이트
 POST /api/reservations → ReservationStore.create → SeatStore.confirmSeats (원자적) + Reservation 레코드 생성
 ```
 
+```
+[관람객 ChatWidget]
+   ↓ POST /api/chat → createChatStream(Opus) → text/plain 스트림
+   ↓ 답변 불가: escalate_to_human
+Slack chat.postMessage → ConversationStore.startEscalation
+   ↓ 상담원이 원문 스레드에 답장
+POST /api/chat/slack/events → 서명 검증 → ConversationStore.appendOperatorReply
+   ↓ GET /api/chat/[conversationId] 3초 폴링 (awaitingOperator일 때만)
+ChatWidget ← operator/notice 턴 + awaitingOperator
+```
+
 도메인 소유 관계는 다음과 같다. `Session`은 `Show`에 속하고, 좌석은 **저장되지 않는다** — `Show.presetId`에서
 `generateSeatsForPreset`으로 매번 파생시킨다. 그래서 `Seat` 타입에 상태 필드가 없고, 점유 상태는 `SeatStore`가 따로 들고 있다.
 

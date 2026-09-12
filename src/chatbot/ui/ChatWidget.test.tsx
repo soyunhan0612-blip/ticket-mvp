@@ -78,6 +78,38 @@ describe("ChatWidget", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
+  it("notice 턴을 안내 텍스트 라벨과 plain text로 렌더한다", async () => {
+    chatState.turns = [
+      {
+        id: "notice-1",
+        role: "notice",
+        content: "1분 안에 답변이 없어 안내드립니다.\n잠시만 기다려 주세요.",
+        createdAt: 1,
+      },
+    ];
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByText("안내")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /1분 안에 답변이 없어 안내드립니다\.\s+잠시만 기다려 주세요\./,
+      ),
+    ).toHaveClass("whitespace-pre-wrap");
+  });
+
+  it("상담원 답변을 기다리는 동안 대기 상태를 알린다", async () => {
+    chatState.awaitingOperator = true;
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "상담원 답변을 기다리고 있습니다.",
+    );
+  });
+
   it("전송이 실패하면 입력한 문장을 되돌린다", async () => {
     chatState.send.mockResolvedValue(false);
     render(<ChatWidget />);

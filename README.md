@@ -87,8 +87,9 @@ TanStack Query와 Jotai는 목록에 스택을 더하기 위해 선택한 것이
 | 13 운영 Agent | 완료 | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |
 | 14 운영 자동화 | 완료 | 판매율 임계값(기본 90%) 판정을 `src/lib/sellout-alert.ts` 순수 함수로 분리, 기존 Basic 게이트 아래의 `GET /api/admin/alerts/sellout`이 대상 회차와 알림 문구(`text`)까지 만들어 응답, n8n 4노드 워크플로 export와 재현 절차를 [`ops/n8n/`](ops/n8n/)에 커밋 |
 | 15 챗봇 | 완료 | 도메인 의존성이 0인 `src/chatbot/core/`와 티켓 어댑터·위젯으로 가른 이식 단위(경계를 import 테스트로 고정), 조회 전용 Tool 5개(공연·회차 잔여석·본인 예매·환불 안내), 게이트 밖 공개 스트리밍 `POST /api/chat`(IP와 `userId` 두 축에 분당 10회)과 복원용 `GET /api/chat/[conversationId]`, 대화는 24시간 TTL로 Redis에 영속화 |
+| 16 상담원 연결 | 완료 | 조회로 답할 수 없는 문의를 Slack으로 넘기고 서명 검증된 스레드 답장을 대화에 저장, 대기 중에만 3초 폴링해 상담원 답장과 1분 자동 안내를 표시, Slack 앱·이벤트·권한 재현 절차를 [`ops/slack/`](ops/slack/)에 문서화 |
 
-세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~15는 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
+세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~16은 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
 
 ## 성능 before / after
 
