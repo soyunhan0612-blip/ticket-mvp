@@ -43,6 +43,12 @@ function mockShowEndpoints(show: Record<string, unknown>) {
       return Promise.resolve(Response.json({ sessions: [] }));
     }
 
+    if (url.startsWith("/api/admin/alerts/sellout")) {
+      return Promise.resolve(
+        Response.json({ threshold: 90, sessions: [], text: "" }),
+      );
+    }
+
     return Promise.resolve(
       Response.json({
         show,
