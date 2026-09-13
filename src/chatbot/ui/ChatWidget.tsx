@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 
 import { CHAT_MESSAGE_LIMIT } from "@/chatbot/adapters/ticket/prompt";
 import { Button } from "@/components/ui/Button";
@@ -93,14 +93,23 @@ function ChatPanel({
     reset,
   } = useChat({ messageLimit: CHAT_MESSAGE_LIMIT });
   const remainingCharacters = CHAT_MESSAGE_LIMIT - message.length;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 새 턴과 스트리밍 청크마다 바닥에 붙인다. 손님이 위로 읽는 중일 때 멈추는
+  // 로직은 알고 뺐다 — 되돌릴 어포던스(배지)를 못 쓰는 자리라 반쪽만 만들면
+  // 새 답변이 온 줄도 모른 채 멈춘 화면을 보게 된다.
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [turns]);
 
   return (
     <Card
       aria-label="문의하기"
-      className="fixed inset-x-lg bottom-3xl z-40 flex max-h-[calc(100vh-4rem)] flex-col gap-lg sm:left-auto sm:right-lg sm:w-full sm:max-w-md"
+      className="fixed inset-x-lg bottom-3xl z-40 flex h-[30rem] max-h-[calc(100dvh-5rem)] flex-col gap-lg sm:left-auto sm:right-lg sm:w-full sm:max-w-md"
       role="region"
     >
-      <header className="flex items-start justify-between gap-md">
+      <header className="flex shrink-0 items-start justify-between gap-md">
         <div className="space-y-xs">
           <h2 className="text-display-xs">문의하기</h2>
           <p className="text-body-sm text-body-aa">
@@ -122,38 +131,42 @@ function ChatPanel({
         </div>
       </header>
 
-      {turns.length === 0 ? (
-        <p className="rounded-card bg-canvas-soft p-md text-body-sm text-body-aa">
-          공연, 회차, 좌석 현황과 내 예매를 물어볼 수 있습니다.
-        </p>
-      ) : (
-        <ol
-          aria-label="대화 내용"
-          className="min-h-0 flex-1 space-y-md overflow-y-auto"
-        >
-          {turns.map((turn) => (
-            <li
-              className={
-                turn.role === "notice"
-                  ? "space-y-xs rounded-card bg-canvas-soft p-md"
-                  : "space-y-xs border-b border-hairline pb-md last:border-b-0 last:pb-0"
-              }
-              key={turn.id}
-            >
-              <p className="text-caption-upper uppercase text-body-aa">
-                {TURN_LABELS[turn.role]}
-              </p>
-              <p className="whitespace-pre-wrap text-body-sm text-ink">
-                {turn.content}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+      {/* 스크롤 컨테이너는 항상 마운트해 둔다. 빈 상태와 목록을 갈아끼우면
+          첫 메시지에서 재마운트돼 ref가 끊긴다. */}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        ref={scrollRef}
+      >
+        {turns.length === 0 ? (
+          <p className="rounded-card bg-canvas-soft p-md text-body-sm text-body-aa">
+            공연, 회차, 좌석 현황과 내 예매를 물어볼 수 있습니다.
+          </p>
+        ) : (
+          <ol aria-label="대화 내용" className="space-y-md">
+            {turns.map((turn) => (
+              <li
+                className={
+                  turn.role === "notice"
+                    ? "space-y-xs rounded-card bg-canvas-soft p-md"
+                    : "space-y-xs border-b border-hairline pb-md last:border-b-0 last:pb-0"
+                }
+                key={turn.id}
+              >
+                <p className="text-caption-upper uppercase text-body-aa">
+                  {TURN_LABELS[turn.role]}
+                </p>
+                <p className="whitespace-pre-wrap text-body-sm text-ink">
+                  {turn.content}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
 
       {awaitingOperator || operatorMode ? (
         <p
-          className="rounded-card bg-canvas-soft p-md text-body-sm text-ink"
+          className="shrink-0 rounded-card bg-canvas-soft p-md text-body-sm text-ink"
           role="status"
         >
           {awaitingOperator
@@ -164,7 +177,7 @@ function ChatPanel({
 
       {error ? (
         <p
-          className="rounded-card bg-primary p-md text-body-sm text-on-primary"
+          className="shrink-0 rounded-card bg-primary p-md text-body-sm text-on-primary"
           role="alert"
         >
           {getErrorMessage(error)}
@@ -173,7 +186,7 @@ function ChatPanel({
 
       {operatorHandoffEnabled && !operatorMode ? (
         <Button
-          className="w-full"
+          className="w-full shrink-0"
           disabled={isRequestingOperator || isStreaming}
           onClick={() => {
             void requestOperator();
@@ -186,7 +199,7 @@ function ChatPanel({
       ) : null}
 
       <form
-        className="space-y-md"
+        className="shrink-0 space-y-md"
         onSubmit={(event) => {
           event.preventDefault();
           const normalizedMessage = message.trim();

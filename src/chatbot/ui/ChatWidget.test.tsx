@@ -258,4 +258,33 @@ describe("ChatWidget", () => {
       "상담원에게 전달하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     );
   });
+
+  it("대화가 비어 있어도 스크롤 컨테이너를 그대로 둔다", async () => {
+    // 빈 상태에서 컨테이너를 떼면 첫 메시지에서 재마운트돼 ref가 끊긴다.
+    const { container } = render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(container.querySelectorAll(".overflow-y-auto")).toHaveLength(1);
+  });
+
+  it("턴이 있으면 대화 목록을 바닥으로 내린다", async () => {
+    // jsdom에는 레이아웃이 없어 scrollHeight가 늘 0이다. 자동 스크롤이
+    // 실제로 걸리는지 보려면 두 접근자를 대신 심어야 한다.
+    const scrollHeight = vi
+      .spyOn(Element.prototype, "scrollHeight", "get")
+      .mockReturnValue(480);
+    const scrollTop = vi.spyOn(Element.prototype, "scrollTop", "set");
+    chatState.turns = [
+      { id: "a1", role: "assistant", content: "답변입니다", createdAt: 1 },
+    ];
+
+    render(<ChatWidget />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(scrollTop).toHaveBeenCalledWith(480);
+
+    scrollTop.mockRestore();
+    scrollHeight.mockRestore();
+  });
 });
