@@ -259,6 +259,32 @@ describe("ChatWidget", () => {
     );
   });
 
+  it("손님 턴을 오른쪽 ink 말풍선에 담고 라벨은 읽어주기용으로만 남긴다", async () => {
+    chatState.turns = [
+      { id: "u1", role: "user", content: "좌석 남았나요", createdAt: 1 },
+    ];
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByText("좌석 남았나요").closest("div")).toHaveClass(
+      "bg-ink",
+    );
+    expect(screen.getByText("나")).toHaveClass("sr-only");
+  });
+
+  it("도우미 턴에 말머리 아이콘을 붙이고 라벨을 감춘다", async () => {
+    chatState.turns = [
+      { id: "a1", role: "assistant", content: "12석 남았습니다", createdAt: 1 },
+    ];
+    const { container } = render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(container.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByText("문의 도우미")).toHaveClass("sr-only");
+  });
+
   it("대화가 비어 있어도 스크롤 컨테이너를 그대로 둔다", async () => {
     // 빈 상태에서 컨테이너를 떼면 첫 메시지에서 재마운트돼 ref가 끊긴다.
     const { container } = render(<ChatWidget />);

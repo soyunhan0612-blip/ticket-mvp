@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextInput } from "@/components/ui/TextInput";
 
+import { ChatBubbleIcon, HeadsetIcon, InfoIcon } from "./icons";
 import { useChat, type ChatTurnView } from "./use-chat";
 
 const TURN_LABELS: Record<ChatTurnView["role"], string> = {
@@ -53,23 +54,66 @@ function getErrorMessage(error: Error): string {
   }
 }
 
-// DS는 아이콘 세트를 주지 않는다(UI_GUIDE). 인라인 SVG를 쓰되 둥근 배경으로
-// 감싸지 않고 텍스트 라벨과 함께만 쓴다.
-function ChatBubbleIcon(): JSX.Element {
+/** 손님 턴은 말풍선이라 아이콘을 두지 않는다. 정렬과 표면이 이미 화자다. */
+const TURN_ICONS: Record<
+  Exclude<ChatTurnView["role"], "user">,
+  () => JSX.Element
+> = {
+  assistant: ChatBubbleIcon,
+  operator: HeadsetIcon,
+  notice: InfoIcon,
+};
+
+/**
+ * 손님과 도우미는 번갈아 나오고 정렬·표면으로 이미 갈리므로 라벨이 중복이다.
+ * 상담원과 안내는 "여기서부터 사람이다"가 정보라 눈에 보이게 남긴다.
+ */
+function isLabelVisible(role: ChatTurnView["role"]): boolean {
+  return role === "operator" || role === "notice";
+}
+
+function ChatTurn({ turn }: { turn: ChatTurnView }): JSX.Element {
+  if (turn.role === "user") {
+    return (
+      <li className="flex justify-end">
+        <div className="max-w-[80%] rounded-card bg-ink px-md py-sm">
+          <span className="sr-only">{TURN_LABELS.user}</span>
+          <p className="whitespace-pre-wrap text-body-sm text-on-dark">
+            {turn.content}
+          </p>
+        </div>
+      </li>
+    );
+  }
+
+  const TurnIcon = TURN_ICONS[turn.role];
+
   return (
-    <svg
-      aria-hidden="true"
-      className="h-5 w-5"
-      fill="none"
-      focusable="false"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={1.5}
-      viewBox="0 0 24 24"
+    <li
+      className={
+        turn.role === "notice"
+          ? "flex gap-sm rounded-card bg-canvas-soft p-md"
+          : "flex gap-sm"
+      }
     >
-      <path d="M20 4.75H4a1.25 1.25 0 0 0-1.25 1.25v9.5A1.25 1.25 0 0 0 4 16.75h3.25v3.5l4.2-3.5H20a1.25 1.25 0 0 0 1.25-1.25V6A1.25 1.25 0 0 0 20 4.75Z" />
-    </svg>
+      <span className="mt-xxs shrink-0 text-body-aa">
+        <TurnIcon />
+      </span>
+      <div className="min-w-0 flex-1 space-y-xxs">
+        <p
+          className={
+            isLabelVisible(turn.role)
+              ? "text-caption-upper uppercase text-body-aa"
+              : "sr-only"
+          }
+        >
+          {TURN_LABELS[turn.role]}
+        </p>
+        <p className="whitespace-pre-wrap text-body-sm text-ink">
+          {turn.content}
+        </p>
+      </div>
+    </li>
   );
 }
 
@@ -142,23 +186,9 @@ function ChatPanel({
             공연, 회차, 좌석 현황과 내 예매를 물어볼 수 있습니다.
           </p>
         ) : (
-          <ol aria-label="대화 내용" className="space-y-md">
+          <ol aria-label="대화 내용" className="space-y-lg">
             {turns.map((turn) => (
-              <li
-                className={
-                  turn.role === "notice"
-                    ? "space-y-xs rounded-card bg-canvas-soft p-md"
-                    : "space-y-xs border-b border-hairline pb-md last:border-b-0 last:pb-0"
-                }
-                key={turn.id}
-              >
-                <p className="text-caption-upper uppercase text-body-aa">
-                  {TURN_LABELS[turn.role]}
-                </p>
-                <p className="whitespace-pre-wrap text-body-sm text-ink">
-                  {turn.content}
-                </p>
-              </li>
+              <ChatTurn key={turn.id} turn={turn} />
             ))}
           </ol>
         )}
