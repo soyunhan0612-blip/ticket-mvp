@@ -92,16 +92,26 @@ test("extracts Add, Update, and Delete paths from apply_patch", () => {
   ]);
 });
 
-test("requires tests only for lib, services, and API route implementations", () => {
+test("requires tests for guarded implementation paths only", () => {
   for (const file of [
+    "src/chatbot/core/engine.ts",
+    "src/chatbot/adapters/ticket/tools.ts",
+    "src/lib/foo.ts",
     "src/lib/seat/map.ts",
+    "src/services/bar.ts",
     "src/services/memory/store.ts",
+    "src/app/api/chat/route.ts",
     "src/app/api/events/[eventId]/holds/route.ts",
   ]) assert.equal(requiresTest(file), true, file);
 
   for (const file of [
+    "src/chatbot/core/engine.test.ts",
+    "src/chatbot/core/__tests__/engine.test.ts",
+    "src/chatbot/ui/use-chat.ts",
+    "src/chatbot/ui/ChatWidget.tsx",
+    "src/chatbot/core/notes.md",
+    "src/components/Foo.tsx",
     "src/lib/seat/map.test.ts",
-    "src/components/Seat.tsx",
     "src/atoms/seats.ts",
     "src/app/events/page.tsx",
     "src/types/seat.ts",
@@ -114,6 +124,11 @@ test("lists colocated and __tests__ test candidates", () => {
   assert.ok(candidates.includes("src/lib/seat/map.spec.ts"));
   assert.ok(candidates.includes("src/lib/seat/__tests__/map.test.ts"));
   assert.ok(candidates.includes("src/lib/seat/__tests__/map.spec.ts"));
+
+  const chatbotCandidates = testCandidates("src/chatbot/core/engine.ts", ROOT)
+    .map((candidate) => normalizePath(candidate, ROOT));
+  assert.ok(chatbotCandidates.includes("src/chatbot/core/engine.test.ts"));
+  assert.ok(chatbotCandidates.includes("src/chatbot/core/__tests__/engine.test.ts"));
 });
 
 test("extracts the minimum Node version from the project engine range", () => {

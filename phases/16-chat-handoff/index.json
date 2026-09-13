@@ -1,0 +1,64 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "16-chat-handoff",
+  "steps": [
+    {
+      "step": 0,
+      "name": "slack-signature",
+      "status": "completed",
+      "summary": "verifySlackSignature(input: SlackSignatureInput): boolean; SLACK_TIMESTAMP_TOLERANCE_MS=300_000.",
+      "started_at": "2026-09-12T19:25:54+0900",
+      "completed_at": "2026-09-12T19:32:53+0900"
+    },
+    {
+      "step": 1,
+      "name": "slack-client",
+      "status": "completed",
+      "summary": "hasSlackConfig(): boolean; postSlackMessage(input: SlackPostMessageInput): Promise<SlackPostMessageResult>; SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID; timeout 5_000ms.",
+      "started_at": "2026-09-12T19:32:55+0900",
+      "completed_at": "2026-09-12T19:40:48+0900"
+    },
+    {
+      "step": 2,
+      "name": "escalation-core",
+      "status": "completed",
+      "summary": "shouldSendAutoReply(escalation: EscalationSnapshot | null, now: number): boolean; isAwaitingOperator(escalation: EscalationSnapshot | null): boolean; AUTO_REPLY_DELAY_MS=60_000이며 정확히 1분 경계에서 미응답·미안내 escalation은 true.",
+      "started_at": "2026-09-12T19:40:52+0900",
+      "completed_at": "2026-09-12T19:49:25+0900"
+    },
+    {
+      "step": 3,
+      "name": "escalation-store",
+      "status": "completed",
+      "summary": "startEscalation(conversationId: string, userId: string, slackThreadTs: string, now: number): Promise<Conversation>; markAutoReplySent(conversationId: string, userId: string, now: number): Promise<boolean>; appendOperatorReply(slackThreadTs: string, content: string, eventId: string, now: number): Promise<Conversation | null>; Redis keys: conversation:slack-thread:{slackThreadTs}, conversation:slack-event:{eventId}; Lua operation markers: start-escalation, mark-auto-reply-sent, append-operator-reply; slackThreadTs regex: /^\\d+\\.\\d+$/.",
+      "started_at": "2026-09-12T19:49:26+0900",
+      "completed_at": "2026-09-12T20:05:33+0900"
+    },
+    {
+      "step": 4,
+      "name": "escalation-wiring",
+      "status": "completed",
+      "summary": "escalate_to_human(z.object({ summary: z.string().min(1).max(1000) }))를 추가하고 Slack 본문을 conversationId + wrapUserInput(summary, 1000) + 스레드 답장 안내로 구성했으며 userId별 에스컬레이션 리미터를 1시간당 3회로 연결했다.",
+      "started_at": "2026-09-12T20:05:33+0900",
+      "completed_at": "2026-09-12T20:15:54+0900"
+    },
+    {
+      "step": 5,
+      "name": "slack-events",
+      "status": "completed",
+      "summary": "/api/chat/slack/events에서 Slack 서명·타임스탬프를 검증하고 bot_id/bot_message, 비-message, 타 채널, 비스레드·루트, 빈 text, 미등록 thread/type 이벤트를 빈 200으로 무시하며 상담원 답장을 중복 없이 저장한다; 호출자 유일성 테스트: src/services/conversation-store-callers.test.ts.",
+      "started_at": "2026-09-12T20:15:55+0900",
+      "completed_at": "2026-09-12T20:25:48+0900"
+    },
+    {
+      "step": 6,
+      "name": "handoff-ui-docs",
+      "status": "completed",
+      "summary": "대기 중에만 3초 폴링해 상담원·안내 턴을 동기화하고 Slack 설정 절차를 문서화했다; 사용자는 Slack 앱에 chat:write와 채널별 history 스코프를 부여하고 봇 초대·Request URL 등록·환경변수 설정·스레드 답장 및 n8n 알림 검증을 수행해야 한다.",
+      "started_at": "2026-09-12T20:25:49+0900",
+      "completed_at": "2026-09-12T20:38:17+0900"
+    }
+  ],
+  "created_at": "2026-09-12T19:25:54+0900",
+  "completed_at": "2026-09-12T20:38:18+0900"
+}

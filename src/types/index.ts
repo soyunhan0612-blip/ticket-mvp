@@ -57,3 +57,27 @@ export interface SeatSnapshot {
   serverNow: number;
   seats: Record<string, SeatSnapshotEntry>;
 }
+
+export type ChatTurnRole = "user" | "assistant" | "operator" | "notice";
+
+export interface ChatTurn {
+  id: string;
+  role: ChatTurnRole;
+  content: string;
+  createdAt: number;
+}
+
+export interface ConversationEscalation {
+  askedAt: number;
+  slackThreadTs: string | null;
+  autoReplySentAt: number | null;
+  answeredAt: number | null;
+}
+
+export interface Conversation {
+  id: string;
+  userId: string;
+  turns: ChatTurn[];
+  escalation: ConversationEscalation | null;
+  updatedAt: number;
+}

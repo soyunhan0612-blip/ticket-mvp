@@ -18,8 +18,9 @@
 4. **4석 상한** — 5번째 좌석을 눌러 보세요. 클라이언트뿐 아니라 `POST /api/holds`에서도 거절합니다 (`src/lib/seat-rules.ts`를 route handler가 재사용).
 5. **좌석 경합** — 같은 좌석 URL을 **시크릿 창**으로 하나 더 엽니다(익명 쿠키가 분리돼 다른 사용자가 됩니다). 한쪽에서 좌석을 잡으면 반대쪽은 3초 안에 회색으로 바뀌고, 같은 좌석을 동시에 잡으면 한쪽만 성공하고 나머지는 **선택 묶음 전체가** 롤백됩니다.
 6. **[/reservations](https://ticket-mvp-eight.vercel.app/reservations)** — 예매 확정 후 내역과 취소. 취소하면 좌석이 다시 예매 가능으로 돌아옵니다.
-7. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 회차를 고르기 전에 **회차별 운영 표**(전체·예매가능·홀드·판매완료·판매율), **AI 운영 요약** 버튼, **운영 질문**(Agent)이 먼저 보입니다. 요약은 버튼을 누를 때만 호출하고, 질문은 Agent가 조회할 Tool을 스스로 골라 답합니다. AI 키가 없으면 둘 다 같은 집계를 읽어 주는 고정 문장으로 폴백합니다. 회차를 고르면 4개 카드와 읽기 전용 좌석맵이 붙고, 위에서 잡은 좌석이 여기 반영됩니다. (로그인 필요)
-8. **[/seller/new](https://ticket-mvp-eight.vercel.app/seller/new)** — 공연 등록과 AI 설명 스트리밍. (로그인 필요)
+7. **문의하기 위젯** — 관람객 화면 오른쪽 아래의 말풍선 `문의하기` 버튼. 공연·회차 잔여석·본인 예매·환불 안내를 조회 툴로만 답합니다(`POST /api/chat`, 로그인 게이트 밖 공개). 예매나 취소를 대신 하지는 않습니다. 패널 안의 `상담원에게 직접 문의하기`를 누르면 모델의 판단을 기다리지 않고 바로 Slack 스레드가 열리고, 그 뒤 보내는 메시지는 모델을 거치지 않고 스레드 답글로 갑니다. 상담원이 Slack에서 답하면 3초 안에 위젯에 뜹니다. AI 키가 없으면 고정 안내 문구로 폴백하고, Slack 자격 증명이 없으면 상담원 버튼 자체가 뜨지 않으며, `/admin`·`/seller`에서는 위젯이 뜨지 않습니다.
+8. **[/admin](https://ticket-mvp-eight.vercel.app/admin)** — 회차를 고르기 전에 **회차별 운영 표**(전체·예매가능·홀드·판매완료·판매율), **AI 운영 요약** 버튼, **운영 질문**(Agent)이 먼저 보입니다. 요약은 버튼을 누를 때만 호출하고, 질문은 Agent가 조회할 Tool을 스스로 골라 답합니다. AI 키가 없으면 둘 다 같은 집계를 읽어 주는 고정 문장으로 폴백합니다. 회차를 고르면 4개 카드와 읽기 전용 좌석맵이 붙고, 위에서 잡은 좌석이 여기 반영됩니다. (로그인 필요)
+9. **[/seller/new](https://ticket-mvp-eight.vercel.app/seller/new)** — 공연 등록과 AI 설명 스트리밍. (로그인 필요)
 
 > 5번 장면의 데모 GIF는 아직 첨부하지 않았습니다. 추가 예정 경로는 `docs/assets/two-tab-seat-conflict.gif`입니다.
 
@@ -50,7 +51,7 @@ curl -u '<user>:<pass>' -b 'userId=local-check' \
 - **TypeScript strict · Tailwind CSS** — 도메인 계약을 타입으로 고정하고, 정해진 UI 토큰 안에서 화면을 구성합니다. 색·타입·간격·라디우스는 `globals.css`의 CSS 변수 한 곳에 모으고 Tailwind가 그것을 참조하므로, 브랜드 교체가 토큰 블록 하나로 끝납니다.
 - **TanStack Query** — 좌석 스냅샷을 3초마다 폴링하고 hold 요청을 낙관적으로 반영한 뒤, 충돌 시 선택 묶음 전체를 롤백합니다.
 - **Jotai** — `atomFamily(seatId)`로 2,000개 좌석의 구독을 분리하고 실제 변경된 좌석만 갱신합니다.
-- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 61개 파일 · 576개 테스트가 CI에서 lint·build와 함께 돕니다.
+- **Vitest** — 순수 로직, Store 구현, API route를 테스트 우선으로 검증합니다. 93개 파일 · 847개 테스트가 CI에서 lint·build와 함께 돕니다.
 - **Upstash Redis** — 공연·회차·좌석·예약을 영속화합니다. 좌석 상태는 회차별 sparse Hash에 저장하고 다중 좌석 전환은 Lua로 처리합니다.
 - **Zod** — 셀러 등록·AI 요청 등 외부에서 들어오는 본문을 route handler 입구에서 파싱합니다. 타입 단언으로 넘기지 않습니다.
 - **Embla Carousel** — 랜딩 히어로 슬라이드에만 씁니다. 직접 구현 대신 도입한 이유는 [ADR-006](docs/ADR.md#adr-006-랜딩-히어로-캐러셀에-embla-도입-직접-구현-대신)에 있습니다.
@@ -85,8 +86,11 @@ TanStack Query와 Jotai는 목록에 스택을 더하기 위해 선택한 것이
 | 12 AI 운영 조회 | 완료 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
 | 13 운영 Agent | 완료 | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |
 | 14 운영 자동화 | 완료 | 판매율 임계값(기본 90%) 판정을 `src/lib/sellout-alert.ts` 순수 함수로 분리, 기존 Basic 게이트 아래의 `GET /api/admin/alerts/sellout`이 대상 회차와 알림 문구(`text`)까지 만들어 응답, n8n 4노드 워크플로 export와 재현 절차를 [`ops/n8n/`](ops/n8n/)에 커밋 |
+| 15 챗봇 | 완료 | 도메인 의존성이 0인 `src/chatbot/core/`와 티켓 어댑터·위젯으로 가른 이식 단위(경계를 import 테스트로 고정), 조회 전용 Tool 5개(공연·회차 잔여석·본인 예매·환불 안내), 게이트 밖 공개 스트리밍 `POST /api/chat`(IP와 `userId` 두 축에 분당 10회)과 복원용 `GET /api/chat/[conversationId]`, 대화는 24시간 TTL로 Redis에 영속화 |
+| 16 상담원 연결 | 완료 | 조회로 답할 수 없는 문의를 Slack으로 넘기고 서명 검증된 스레드 답장을 대화에 저장, 대기 중에만 3초 폴링해 상담원 답장과 1분 자동 안내를 표시, Slack 앱·이벤트·권한 재현 절차를 [`ops/slack/`](ops/slack/)에 문서화 |
+| 16+ 상담원 직접 문의 | 완료 | 모델의 판단을 기다리지 않고 손님이 직접 누르는 `POST /api/chat/handoff`, 연결된 뒤의 메시지는 `POST /api/chat`이 모델 대신 Slack 스레드로 릴레이, 두 진입점이 시간당 3회 버킷을 공유, 런처에 말풍선 아이콘 |
 
-세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~14는 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
+세부 진행 기록과 아직 남은 수동 검증은 [Progress Journal](docs/PROGRESS.md)과 [`phases/`](phases/)에 있습니다. Day 10~16은 Day 0~9 구현 이후의 릴리스·계측·확장 작업입니다.
 
 ## 성능 before / after
 
@@ -167,7 +171,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm dev` | 개발 서버 |
 | `pnpm build` | 프로덕션 빌드 (배포 직전 수동) |
 | `pnpm lint` | ESLint |
-| `pnpm test` | Vitest 전체 테스트 (61개 파일 · 576개 테스트) |
+| `pnpm test` | Vitest 전체 테스트 (93개 파일 · 847개 테스트) |
 | `pnpm test:watch` | Vitest 워치 모드 |
 
 ## 데이터 영속성

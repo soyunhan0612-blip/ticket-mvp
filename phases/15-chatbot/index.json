@@ -1,0 +1,80 @@
+{
+  "project": "티켓 예매 MVP",
+  "phase": "15-chatbot",
+  "steps": [
+    {
+      "step": 0,
+      "name": "tdd-guard-chatbot",
+      "status": "completed",
+      "summary": "src/chatbot/core/와 src/chatbot/adapters/를 TDD 가드 대상에 추가하고 src/chatbot/ui/는 제외했다.",
+      "started_at": "2026-09-12T13:01:11+0900",
+      "completed_at": "2026-09-12T13:06:33+0900"
+    },
+    {
+      "step": 1,
+      "name": "chat-core-primitives",
+      "status": "completed",
+      "summary": "src/chatbot/core/types.ts에 ChatHistoryTurn, ChatToolDescriptor<Schema extends z.ZodType = z.ZodType>, ChatEngineConfig를, sanitize.ts에 USER_INPUT_START/END·DEFAULT_INPUT_LIMIT=100과 neutralizeInput(value: string, limit?: number): string·wrapUserInput(value: string, limit?: number): string을, history.ts에 MAX_HISTORY_TURNS=10·MAX_TURN_LENGTH=2000과 normalizeHistory(turns: ChatHistoryTurn[]): ChatHistoryTurn[]를, fallback.ts에 EMPTY_ANSWER_NOTICE·TRUNCATED_ANSWER_NOTICE와 createTextStream(text: string): ReadableStream<Uint8Array>를 추가하고 각 동명 테스트 및 __tests__/no-domain-imports.test.ts를 추가했다; 아키텍처 테스트 화이트리스트는 @anthropic-ai/sdk, @anthropic-ai/sdk/helpers/beta/zod, zod, ./ 상대 경로다.",
+      "started_at": "2026-09-12T13:20:32+0900",
+      "completed_at": "2026-09-12T13:27:39+0900"
+    },
+    {
+      "step": 2,
+      "name": "chat-engine",
+      "status": "completed",
+      "summary": "createChatStream(config: ChatEngineConfig): ReadableStream<Uint8Array>를 추가해 바깥 iteration 스트림·안쪽 이벤트의 중첩 루프로 text delta를 즉시 전달하고 finalMessage()의 마지막 stop_reason을 처리하며, apiKey가 비었거나 공백뿐이면 controller.error()로 종료하도록 했다.",
+      "started_at": "2026-09-12T13:45:10+0900",
+      "completed_at": "2026-09-12T13:52:48+0900"
+    },
+    {
+      "step": 3,
+      "name": "conversation-store",
+      "status": "completed",
+      "summary": "create(userId: string): Promise<Conversation>; get(conversationId: string, userId: string): Promise<Conversation>; appendTurns(conversationId: string, userId: string, turns: NewChatTurn[]): Promise<Conversation>; CONVERSATION_TTL_MS=86400000, MAX_TURNS_PER_CONVERSATION=100, MAX_TURN_CONTENT_LENGTH=4000.",
+      "started_at": "2026-09-12T14:13:07+0900",
+      "completed_at": "2026-09-12T14:21:20+0900"
+    },
+    {
+      "step": 4,
+      "name": "conversation-store-redis",
+      "status": "completed",
+      "summary": "Redis keys: conversation:{conversationId}:meta, conversation:{conversationId}:turns; Lua operation markers: create-conversation, get-conversation, append-conversation.",
+      "started_at": "2026-09-12T14:22:20+0900",
+      "completed_at": "2026-09-12T14:35:14+0900"
+    },
+    {
+      "step": 5,
+      "name": "ticket-adapter-base",
+      "status": "completed",
+      "summary": "TicketChatDeps fields: showStore(list/get/getBySessionId), seatStore(getSnapshot), reservationStore(listByUser), userId; CHAT_MODEL=claude-opus-5, CHAT_MAX_TOKENS=2000, CHAT_MAX_ITERATIONS=4, CHAT_MESSAGE_LIMIT=1000.",
+      "started_at": "2026-09-12T14:37:13+0900",
+      "completed_at": "2026-09-12T14:48:16+0900"
+    },
+    {
+      "step": 6,
+      "name": "ticket-tools",
+      "status": "completed",
+      "summary": "list_shows(z.object({})), get_show(z.object({ showId: z.string() })), get_session_availability(z.object({ sessionId: z.string() })), list_my_reservations(z.object({})), get_refund_policy(z.object({})) 다섯 조회 툴과 TICKET_CHAT_READ_ONLY_SOURCE_PATHS 배열 기반 무부작용 경계 테스트를 추가했다.",
+      "started_at": "2026-09-12T15:01:21+0900",
+      "completed_at": "2026-09-12T15:09:08+0900"
+    },
+    {
+      "step": 7,
+      "name": "chat-api",
+      "status": "completed",
+      "summary": "POST /api/chat은 { conversationId?, message }를 받아 IP·userId 각각 분당 10회 제한으로 text/plain 스트림과 X-Conversation-Id를 반환하고, GET /api/chat/[conversationId]는 IP 분당 60회 제한으로 { conversation: { id, turns, updatedAt }, awaitingOperator } JSON을 반환한다.",
+      "started_at": "2026-09-12T16:21:04+0900",
+      "completed_at": "2026-09-12T16:32:57+0900"
+    },
+    {
+      "step": 8,
+      "name": "chat-ui",
+      "status": "completed",
+      "summary": "useChat이 turns, isStreaming, awaitingOperator, error, send, reset을 반환하도록 구현하고 ChatWidget을 src/app/layout.tsx의 Providers 내부에 부착했으며, 패널은 <dialog>가 아닌 일반 fixed 패널로 구성했다.",
+      "started_at": "2026-09-12T17:40:10+0900",
+      "completed_at": "2026-09-12T18:09:58+0900"
+    }
+  ],
+  "created_at": "2026-09-12T13:01:11+0900",
+  "completed_at": "2026-09-12T18:28:30+0900"
+}
