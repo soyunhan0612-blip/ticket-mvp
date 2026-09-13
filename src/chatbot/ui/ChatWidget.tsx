@@ -174,13 +174,15 @@ function ChatPanel({
   return (
     <Card
       aria-label="문의하기"
-      className="fixed inset-x-lg bottom-3xl z-40 flex h-[30rem] max-h-[calc(100dvh-5rem)] flex-col gap-lg sm:left-auto sm:right-lg sm:w-full sm:max-w-md"
+      className="fixed inset-x-lg bottom-3xl z-40 flex h-[34rem] max-h-[calc(100dvh-5rem)] flex-col gap-lg sm:left-auto sm:right-lg sm:w-full sm:max-w-md"
       role="region"
     >
       {/* 그림자를 쓰지 않으므로 헤어라인이 고정 크롬과 대화를 가른다. */}
       <header className="flex shrink-0 items-center justify-between gap-sm border-b border-hairline pb-md">
         <h2 className="truncate text-display-xs">문의하기</h2>
         <div className="flex shrink-0 items-center gap-xs">
+          {/* 400px 폭에서 제목과 버튼 셋이 한 줄에 들어가야 해 라벨을 sr-only로
+              내렸다. 호버에는 title이 같은 문구를 띄운다. */}
           {operatorHandoffEnabled && !operatorMode ? (
             <Button
               disabled={isRequestingOperator || isStreaming}
@@ -188,16 +190,13 @@ function ChatPanel({
                 void requestOperator();
               }}
               size="sm"
+              title="상담원 연결"
               variant="text"
             >
-              {isRequestingOperator ? (
-                "연결 중..."
-              ) : (
-                <span className="inline-flex items-center gap-xs">
-                  <HeadsetIcon />
-                  상담원 연결
-                </span>
-              )}
+              <HeadsetIcon />
+              <span className="sr-only">
+                {isRequestingOperator ? "연결 중..." : "상담원 연결"}
+              </span>
             </Button>
           ) : null}
           <Button
