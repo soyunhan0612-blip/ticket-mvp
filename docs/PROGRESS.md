@@ -3,6 +3,31 @@
 Day별 진행 결과와 결정 근거. 서사 문서.
 기계 요약은 `phases/*/index.json`에, 커밋 히스토리는 `git log`에.
 
+## 단계 요약
+
+| Day | 주요 산출물 |
+|---|---|
+| 0 Foundation | Next.js 15·TS strict·Tailwind·TanStack Query·Jotai·Vitest 기반, 도메인 타입, 좌석 순수 로직, 공연 8개·회차 24개 시드 |
+| 1 기반 + 사고 방지 | `.env*` 차단, 보안 헤더 3종, TDD/Stop 훅 범위 정리 (Day 0에 흡수) |
+| 2 목록·상세 | `/shows`, `/shows/[id]` RSC, 조회 API, UI 토큰, Vercel 조기 배포 |
+| 3 좌석맵 before | 2,000석 SVG와 의도적인 전역 배열/prop drilling 대조군, 자동 계측 픽스처 |
+| 4 좌석 최적화 | Jotai `atomFamily` + `React.memo`로 좌석별 구독 격리 |
+| 5 서버 hold | 익명 UUID 쿠키, 5분 hold, 최대 4석·좌석 ID·소유권 서버 검증, 다중 좌석 전체 성공/실패 |
+| 6 폴링·롤백 | 3초 스냅샷 폴링, 낙관적 hold, 409 전체 롤백, 충돌 토스트, 서버 시각 기반 타이머 |
+| 7 예매 | 예매 확정·내역·취소, 사용자별 조회와 소유권 검증, 실패 시 보상 롤백 |
+| 8 셀러·AI | 3종 좌석 프리셋(500·1,000·2,000석) 공연 등록, Haiku 4.5 설명 스트리밍과 키 없는 fallback, IP 단위 요청 제한, Basic Auth |
+| 9 Admin·Redis | 재사용 좌석맵 기반 Admin, SVG `viewBox` 줌/팬, Redis Store·Lua·팩토리 교체; 로컬·프로덕션 양쪽에서 Redis 연결 확인 |
+| 10 릴리스 | Basic Auth fail-closed 수정, README 정리. 당시 실측값이 없어 지표 문서화 단계는 [`blocked`](../phases/10-release/index.json)로 멈췄고, 2026-09-13 실측으로 채웠다 |
+| 11 성능 계측 | 렌더 카운터와 before/after 계측 테스트로 리렌더 수를 실측, 측정 절차를 [Perf Measurement](PERF_MEASUREMENT.md)에 문서화 |
+| 12 AI 운영 조회 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
+| 13 운영 Agent | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |
+| 14 운영 자동화 | 판매율 임계값(기본 90%) 판정을 `src/lib/sellout-alert.ts` 순수 함수로 분리, 기존 Basic 게이트 아래의 `GET /api/admin/alerts/sellout`이 대상 회차와 알림 문구까지 만들어 응답, n8n 4노드 워크플로 export와 재현 절차를 [`ops/n8n/`](../ops/n8n/)에 커밋 |
+| 15 챗봇 | 도메인 의존성이 0인 `src/chatbot/core/`와 티켓 어댑터·위젯으로 가른 이식 단위(경계를 import 테스트로 고정), 조회 전용 Tool 5개, 게이트 밖 공개 스트리밍 `POST /api/chat`과 복원용 `GET /api/chat/[conversationId]`, 대화는 24시간 TTL로 Redis에 영속화 |
+| 16 상담원 연결 | 조회로 답할 수 없는 문의를 Slack으로 넘기고 서명 검증된 스레드 답장을 대화에 저장, 대기 중에만 3초 폴링해 상담원 답장과 1분 자동 안내를 표시, 재현 절차를 [`ops/slack/`](../ops/slack/)에 문서화 |
+| 16+ 상담원 직접 문의 | 손님이 직접 누르는 `POST /api/chat/handoff`, 연결된 뒤의 메시지는 `POST /api/chat`이 모델 대신 Slack 스레드로 릴레이, 두 진입점이 시간당 3회 버킷을 공유 |
+
+Day 10~16은 Day 0~9 구현 이후의 릴리스·계측·확장 작업이다. 남은 수동 검증은 [Test Scenarios](TEST_SCENARIOS.md)에 있다.
+
 ---
 
 ## Day 0 — Foundation (완료 2026-08-06)
