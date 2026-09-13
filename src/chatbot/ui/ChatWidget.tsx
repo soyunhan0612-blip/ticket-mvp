@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextInput } from "@/components/ui/TextInput";
 
-import { ChatBubbleIcon, HeadsetIcon, InfoIcon } from "./icons";
+import { ChatBubbleIcon, CloseIcon, HeadsetIcon, InfoIcon } from "./icons";
 import { useChat, type ChatTurnView } from "./use-chat";
 
 const TURN_LABELS: Record<ChatTurnView["role"], string> = {
@@ -17,6 +17,16 @@ const TURN_LABELS: Record<ChatTurnView["role"], string> = {
   operator: "상담원",
   notice: "안내",
 };
+
+/** 조회 툴이 실제로 답할 수 있는 것만 고른다. 빈 화면의 설명을 대신한다. */
+const SUGGESTED_QUESTIONS = [
+  "공연 목록 보여주세요",
+  "내 예매 내역 알려주세요",
+  "환불 규정이 어떻게 되나요",
+];
+
+/** 상한이 가까울 때만 남은 글자를 알린다. 그 전에는 자리만 먹는다. */
+const CHARACTER_HINT_THRESHOLD = 50;
 
 function isOperatorPath(pathname: string): boolean {
   return (
@@ -72,7 +82,13 @@ function isLabelVisible(role: ChatTurnView["role"]): boolean {
   return role === "operator" || role === "notice";
 }
 
-function ChatTurn({ turn }: { turn: ChatTurnView }): JSX.Element {
+function ChatTurn({
+  isStreaming,
+  turn,
+}: {
+  isStreaming: boolean;
+  turn: ChatTurnView;
+}): JSX.Element {
   if (turn.role === "user") {
     return (
       <li className="flex justify-end">
@@ -87,6 +103,10 @@ function ChatTurn({ turn }: { turn: ChatTurnView }): JSX.Element {
   }
 
   const TurnIcon = TURN_ICONS[turn.role];
+  // 스트리밍은 빈 assistant 턴을 먼저 올리고 조각으로 채운다. 그 사이를
+  // 비워 두면 아이콘만 뜬 빈 줄로 보인다.
+  const isAwaitingFirstChunk =
+    isStreaming && turn.role === "assistant" && turn.content === "";
 
   return (
     <li
@@ -109,9 +129,13 @@ function ChatTurn({ turn }: { turn: ChatTurnView }): JSX.Element {
         >
           {TURN_LABELS[turn.role]}
         </p>
-        <p className="whitespace-pre-wrap text-body-sm text-ink">
-          {turn.content}
-        </p>
+        {isAwaitingFirstChunk ? (
+          <p className="text-body-sm text-body-aa">답변을 쓰고 있습니다</p>
+        ) : (
+          <p className="whitespace-pre-wrap text-body-sm text-ink">
+            {turn.content}
+          </p>
+        )}
       </div>
     </li>
   );
@@ -153,14 +177,29 @@ function ChatPanel({
       className="fixed inset-x-lg bottom-3xl z-40 flex h-[30rem] max-h-[calc(100dvh-5rem)] flex-col gap-lg sm:left-auto sm:right-lg sm:w-full sm:max-w-md"
       role="region"
     >
-      <header className="flex shrink-0 items-start justify-between gap-md">
-        <div className="space-y-xs">
-          <h2 className="text-display-xs">문의하기</h2>
-          <p className="text-body-sm text-body-aa">
-            공연과 예매에 관해 물어보세요.
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-xs">
+      {/* 그림자를 쓰지 않으므로 헤어라인이 고정 크롬과 대화를 가른다. */}
+      <header className="flex shrink-0 items-center justify-between gap-sm border-b border-hairline pb-md">
+        <h2 className="truncate text-display-xs">문의하기</h2>
+        <div className="flex shrink-0 items-center gap-xs">
+          {operatorHandoffEnabled && !operatorMode ? (
+            <Button
+              disabled={isRequestingOperator || isStreaming}
+              onClick={() => {
+                void requestOperator();
+              }}
+              size="sm"
+              variant="text"
+            >
+              {isRequestingOperator ? (
+                "연결 중..."
+              ) : (
+                <span className="inline-flex items-center gap-xs">
+                  <HeadsetIcon />
+                  상담원 연결
+                </span>
+              )}
+            </Button>
+          ) : null}
           <Button
             disabled={turns.length === 0 && !error}
             onClick={reset}
@@ -169,8 +208,10 @@ function ChatPanel({
           >
             새 대화
           </Button>
+          {/* 패널 안의 좁은 컨트롤이라 아이콘만 둔다(UI_GUIDE 예외). */}
           <Button onClick={onClose} size="sm" variant="text">
-            닫기
+            <CloseIcon />
+            <span className="sr-only">닫기</span>
           </Button>
         </div>
       </header>
@@ -182,13 +223,32 @@ function ChatPanel({
         ref={scrollRef}
       >
         {turns.length === 0 ? (
-          <p className="rounded-card bg-canvas-soft p-md text-body-sm text-body-aa">
-            공연, 회차, 좌석 현황과 내 예매를 물어볼 수 있습니다.
-          </p>
+          <div className="flex h-full flex-col items-center justify-center gap-lg text-center">
+            <span className="text-body-aa">
+              <ChatBubbleIcon />
+            </span>
+            <p className="text-body-sm text-body-aa">
+              공연, 회차, 좌석 현황과 내 예매를 물어볼 수 있습니다.
+            </p>
+            <div className="flex w-full flex-col gap-xs">
+              {SUGGESTED_QUESTIONS.map((question) => (
+                <Button
+                  key={question}
+                  onClick={() => {
+                    void send(question);
+                  }}
+                  size="sm"
+                  variant="outline-dark"
+                >
+                  {question}
+                </Button>
+              ))}
+            </div>
+          </div>
         ) : (
           <ol aria-label="대화 내용" className="space-y-lg">
             {turns.map((turn) => (
-              <ChatTurn key={turn.id} turn={turn} />
+              <ChatTurn isStreaming={isStreaming} key={turn.id} turn={turn} />
             ))}
           </ol>
         )}
@@ -214,20 +274,6 @@ function ChatPanel({
         </p>
       ) : null}
 
-      {operatorHandoffEnabled && !operatorMode ? (
-        <Button
-          className="w-full shrink-0"
-          disabled={isRequestingOperator || isStreaming}
-          onClick={() => {
-            void requestOperator();
-          }}
-          size="sm"
-          variant="outline-dark"
-        >
-          {isRequestingOperator ? "연결 중..." : "상담원에게 직접 문의하기"}
-        </Button>
-      ) : null}
-
       <form
         className="shrink-0 space-y-md"
         onSubmit={(event) => {
@@ -245,7 +291,11 @@ function ChatPanel({
       >
         <TextInput
           autoComplete="off"
-          hint={`${remainingCharacters}자 남음`}
+          hint={
+            remainingCharacters <= CHARACTER_HINT_THRESHOLD
+              ? `${remainingCharacters}자 남음`
+              : undefined
+          }
           id="chat-message"
           label={operatorMode ? "상담원에게 보낼 메시지" : "문의 내용"}
           maxLength={CHAT_MESSAGE_LIMIT}

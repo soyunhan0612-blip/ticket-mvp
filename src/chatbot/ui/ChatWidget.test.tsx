@@ -141,13 +141,68 @@ describe("ChatWidget", () => {
     expect(input).toHaveValue("");
   });
 
-  it("입력을 서버 상한으로 제한하고 남은 글자 수를 표시한다", async () => {
+  it("입력을 서버 상한으로 제한하고 상한이 가까울 때만 남은 글자 수를 알린다", async () => {
     render(<ChatWidget />);
     await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
 
     const input = screen.getByRole("textbox", { name: "문의 내용" });
     expect(input).toHaveAttribute("maxLength", String(CHAT_MESSAGE_LIMIT));
-    expect(screen.getByText(`${CHAT_MESSAGE_LIMIT}자 남음`)).toBeInTheDocument();
+    // 1,000자 중 990자가 남았다는 안내는 매 화면에서 자리만 먹는다.
+    expect(
+      screen.queryByText(`${CHAT_MESSAGE_LIMIT}자 남음`),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(input);
+    await userEvent.paste("가".repeat(CHAT_MESSAGE_LIMIT - 10));
+
+    expect(screen.getByText("10자 남음")).toBeInTheDocument();
+  });
+
+  it("첫 화면에서 바로 보낼 수 있는 질문을 제안한다", async () => {
+    render(<ChatWidget />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "환불 규정이 어떻게 되나요" }),
+    );
+
+    expect(chatState.send).toHaveBeenCalledWith("환불 규정이 어떻게 되나요");
+  });
+
+  it("첫 응답 조각이 오기 전까지 대화 영역에서 대기를 알린다", async () => {
+    chatState.isStreaming = true;
+    chatState.turns = [
+      { id: "u1", role: "user", content: "좌석 남았나요", createdAt: 1 },
+      { id: "a1", role: "assistant", content: "", createdAt: 2 },
+    ];
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByText("답변을 쓰고 있습니다")).toBeInTheDocument();
+  });
+
+  it("스트리밍이 끝난 빈 턴은 대기 문구로 채우지 않는다", async () => {
+    chatState.isStreaming = false;
+    chatState.turns = [
+      { id: "a1", role: "assistant", content: "", createdAt: 2 },
+    ];
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.queryByText("답변을 쓰고 있습니다")).not.toBeInTheDocument();
+  });
+
+  it("닫기는 아이콘만 두되 읽어주기용 이름을 남긴다", async () => {
+    render(<ChatWidget />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "닫기" }));
+
+    expect(
+      screen.getByRole("button", { name: "문의하기" }),
+    ).toBeInTheDocument();
   });
 
   it("런처 아이콘을 장식으로 두고 텍스트 라벨을 남긴다", () => {
@@ -167,7 +222,7 @@ describe("ChatWidget", () => {
     await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
 
     expect(
-      screen.queryByRole("button", { name: "상담원에게 직접 문의하기" }),
+      screen.queryByRole("button", { name: "상담원 연결" }),
     ).not.toBeInTheDocument();
   });
 
@@ -176,7 +231,7 @@ describe("ChatWidget", () => {
     await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
 
     await userEvent.click(
-      screen.getByRole("button", { name: "상담원에게 직접 문의하기" }),
+      screen.getByRole("button", { name: "상담원 연결" }),
     );
 
     expect(chatState.requestOperator).toHaveBeenCalledTimes(1);
@@ -199,7 +254,7 @@ describe("ChatWidget", () => {
     await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
 
     expect(
-      screen.queryByRole("button", { name: "상담원에게 직접 문의하기" }),
+      screen.queryByRole("button", { name: "상담원 연결" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "상담원에게 보낼 메시지" }),
