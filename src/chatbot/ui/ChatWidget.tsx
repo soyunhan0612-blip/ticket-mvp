@@ -254,14 +254,19 @@ function ChatPanel({
       </div>
 
       {awaitingOperator || operatorMode ? (
-        <p
-          className="shrink-0 rounded-card bg-canvas-soft p-md text-body-sm text-ink"
+        <div
+          className="flex shrink-0 gap-sm rounded-card bg-canvas-soft p-md"
           role="status"
         >
-          {awaitingOperator
-            ? "상담원 답변을 기다리고 있습니다."
-            : "상담원과 연결되어 있습니다. 보내는 메시지는 상담원에게 전달됩니다."}
-        </p>
+          <span className="mt-xxs shrink-0 text-body-aa">
+            <InfoIcon />
+          </span>
+          <p className="min-w-0 flex-1 text-body-sm text-ink">
+            {awaitingOperator
+              ? "상담원 답변을 기다리고 있습니다."
+              : "상담원과 연결되어 있습니다. 보내는 메시지는 상담원에게 전달됩니다."}
+          </p>
+        </div>
       ) : null}
 
       {error ? (
