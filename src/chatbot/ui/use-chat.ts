@@ -283,9 +283,14 @@ export function useChat(options: UseChatOptions): UseChatResult {
       createdAt: Date.now(),
     };
     const assistantTurnId = createLocalTurnId("assistant");
-    // 손님 턴이 transcript에 올라간 뒤의 실패는 친 문장이 화면에 남아 있으므로
-    // 되돌릴 필요가 없다. 올라가기 전의 실패만 호출자에게 알린다.
-    let userTurnVisible = false;
+
+    // 손님 턴은 요청을 보내기 전에 올린다. 응답 헤더를 기다렸다 올리면 버튼
+    // 라벨만 바뀐 채로 몇 초 동안 자기가 친 문장이 화면에 없다.
+    setTurns((current) => [...current, userTurn]);
+
+    // 서버가 손님 턴을 받아 간 뒤의 실패는 친 문장을 화면에 남겨 둔다.
+    // 받아 가기 전의 실패만 낙관적 턴을 걷어내고 호출자에게 알린다.
+    let userTurnPersisted = false;
 
     try {
       const response = await fetch(sendPathRef.current, {
@@ -320,7 +325,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
         response.headers.get(OPERATOR_CHAT_ROUTE_HEADER) === OPERATOR_CHAT_ROUTE
       ) {
         // 서버가 이미 손님 턴을 저장했다. 실패해도 입력을 되돌리지 않는다.
-        userTurnVisible = true;
+        userTurnPersisted = true;
         const relayed = await fetchConversation(
           conversationPathRef.current(responseConversationId),
           abortController.signal,
@@ -337,7 +342,6 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
       setTurns((current) => [
         ...current,
-        userTurn,
         {
           id: assistantTurnId,
           role: "assistant",
@@ -345,7 +349,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
           createdAt: Date.now(),
         },
       ]);
-      userTurnVisible = true;
+      userTurnPersisted = true;
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -387,12 +391,16 @@ export function useChat(options: UseChatOptions): UseChatResult {
     } catch (caught) {
       if (abortController.signal.aborted) return true;
 
+      if (!userTurnPersisted) {
+        setTurns((current) => current.filter((turn) => turn.id !== userTurn.id));
+      }
+
       setError(
         caught instanceof Error
           ? caught
           : new Error("Chat request failed"),
       );
-      return userTurnVisible;
+      return userTurnPersisted;
     } finally {
       if (abortRef.current === abortController) {
         abortRef.current = null;

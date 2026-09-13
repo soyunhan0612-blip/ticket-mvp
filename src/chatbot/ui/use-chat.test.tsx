@@ -480,4 +480,52 @@ describe("useChat", () => {
     expect(result.current.turns).toEqual([]);
     expect(sessionStorage.getItem(CHAT_CONVERSATION_STORAGE_KEY)).toBeNull();
   });
+
+  it("서버 응답을 기다리지 않고 손님 턴을 먼저 올린다", async () => {
+    let releaseResponse!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      releaseResponse = resolve;
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockReturnValueOnce(pending)
+      .mockResolvedValue(createConversationResponse());
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    let sending!: Promise<boolean>;
+    act(() => {
+      sending = result.current.send("좌석 남았나요");
+    });
+
+    // POST가 아직 응답하지 않았는데도 친 문장이 화면에 있어야 한다.
+    await waitFor(() => {
+      expect(result.current.turns).toHaveLength(1);
+    });
+    expect(result.current.turns[0]).toMatchObject({
+      role: "user",
+      content: "좌석 남았나요",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    releaseResponse(createStreamingResponse(["네, 남았습니다"]));
+    await act(async () => {
+      await sending;
+    });
+  });
+
+  it("서버가 거절하면 낙관적으로 올린 손님 턴을 걷어낸다", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 429 }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    let sent!: boolean;
+    await act(async () => {
+      sent = await result.current.send("좌석 남았나요");
+    });
+
+    // 호출자가 입력을 되돌릴 수 있도록 false를 주고 화면도 원래대로 둔다.
+    expect(sent).toBe(false);
+    expect(result.current.turns).toEqual([]);
+  });
 });
