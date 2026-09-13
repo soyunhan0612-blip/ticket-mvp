@@ -244,7 +244,7 @@ export async function POST(request: Request): Promise<Response> {
       conversationId: conversation.id,
       userId,
       conversationStore,
-      postMessage: (text) => postSlackMessage({ text }),
+      postMessage: postSlackMessage,
       canEscalateNow: () => checkEscalationRateLimit(userId).allowed,
       now: () => Date.now(),
     }));

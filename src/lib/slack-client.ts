@@ -3,7 +3,10 @@ export const SLACK_POST_MESSAGE_URL =
 export const SLACK_REQUEST_TIMEOUT_MS = 5_000;
 
 export interface SlackPostMessageInput {
+  /** Block Kit을 함께 보내도 알림에는 이 문자열이 뜬다. 항상 채운다. */
   text: string;
+  /** 도메인을 모르는 계층이라 블록 모양은 호출자가 정한다. */
+  blocks?: readonly unknown[];
   threadTs?: string;
 }
 
@@ -36,11 +39,16 @@ export async function postSlackMessage(
   const requestBody: {
     channel: string;
     text: string;
+    blocks?: readonly unknown[];
     thread_ts?: string;
   } = {
     channel: process.env.SLACK_CHANNEL_ID!,
     text: input.text,
   };
+
+  if (input.blocks !== undefined) {
+    requestBody.blocks = input.blocks;
+  }
 
   if (input.threadTs !== undefined) {
     requestBody.thread_ts = input.threadTs;

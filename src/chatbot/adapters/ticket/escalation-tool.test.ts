@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { wrapUserInput } from "../../core/sanitize";
+import { neutralizeInput } from "../../core/sanitize";
 import type { Conversation } from "@/types";
 
 import {
@@ -117,13 +117,23 @@ describe("createEscalationTool", () => {
 
     expect(JSON.parse(result)).toEqual({ escalated: true });
     expect(postMessage).toHaveBeenCalledOnce();
-    const text = postMessage.mock.calls[0]?.[0] as string;
-    expect(text).toContain("conversation-123");
-    expect(text).toContain(
-      "이 메시지에 스레드로 답장하면 손님 화면에 전달됩니다",
-    );
-    expect(text).toContain(wrapUserInput(summary, ESCALATION_SUMMARY_LIMIT));
-    expect(text).not.toContain("private-user-id");
+    const message = postMessage.mock.calls[0]?.[0] as {
+      text: string;
+      blocks: readonly unknown[];
+    };
+    const body = JSON.stringify(message);
+    expect(body).toContain("conversation-123");
+    expect(body).toContain("스레드로 답장하면 손님에게 전달됩니다");
+    expect(message.blocks[1]).toEqual({
+      type: "section",
+      text: {
+        type: "plain_text",
+        text: neutralizeInput(summary, ESCALATION_SUMMARY_LIMIT),
+        emoji: false,
+      },
+    });
+    expect(body).not.toContain("USER_INPUT_START");
+    expect(body).not.toContain("private-user-id");
     expect(conversationStore.startEscalation).toHaveBeenCalledWith(
       "conversation-123",
       "private-user-id",

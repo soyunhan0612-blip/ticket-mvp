@@ -3,8 +3,9 @@ import { z } from "zod";
 import type { ConversationStore } from "@/services/conversation-store";
 
 import { isAwaitingOperator } from "../../core/escalation";
-import { wrapUserInput } from "../../core/sanitize";
 import type { ChatToolDescriptor } from "../../core/types";
+
+import { buildEscalationMessage, type SlackBlock } from "./operator-handoff";
 
 export const ESCALATION_SUMMARY_LIMIT = 1_000;
 
@@ -19,7 +20,11 @@ export interface EscalationToolDeps {
     ConversationStore,
     "get" | "startEscalation"
   >;
-  postMessage: (text: string) => Promise<{ ts: string }>;
+  postMessage: (input: {
+    text: string;
+    blocks?: readonly SlackBlock[];
+    threadTs?: string;
+  }) => Promise<{ ts: string }>;
   canEscalateNow: () => boolean;
   now: () => number;
 }
@@ -52,14 +57,12 @@ export function createEscalationTool(
           });
         }
 
-        const text = [
-          "관람객 상담 요청",
-          `대화 ID: ${deps.conversationId}`,
-          "문의 요약:",
-          wrapUserInput(summary, ESCALATION_SUMMARY_LIMIT),
-          "이 메시지에 스레드로 답장하면 손님 화면에 전달됩니다.",
-        ].join("\n");
-        const { ts } = await deps.postMessage(text);
+        const { ts } = await deps.postMessage(
+          buildEscalationMessage({
+            conversationId: deps.conversationId,
+            summary,
+          }),
+        );
 
         await deps.conversationStore.startEscalation(
           deps.conversationId,

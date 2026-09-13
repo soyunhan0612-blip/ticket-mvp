@@ -75,14 +75,41 @@ describe("postSlackMessage", () => {
           Authorization: `Bearer ${BOT_TOKEN}`,
           "Content-Type": "application/json; charset=utf-8",
         },
-        body: JSON.stringify({ channel: CHANNEL_ID, text: "상담 요청" }),
         signal: expect.any(AbortSignal),
       }),
     );
     const [, request] = fetchSpy.mock.calls[0];
+    // 키 순서가 아니라 내용을 고정한다. blocks가 없으면 body에도 실리지 않는다.
+    expect(JSON.parse(String(request?.body))).toEqual({
+      channel: CHANNEL_ID,
+      text: "상담 요청",
+    });
     const headers = request?.headers as Record<string, string>;
     expect(headers.Authorization).toMatch(/^Bearer /);
     expect(SLACK_REQUEST_TIMEOUT_MS).toBe(5_000);
+  });
+
+  it("forwards Block Kit blocks alongside the notification fallback text", async () => {
+    configureSlack();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, ts: "1760000000.000300" })),
+    );
+    const blocks = [
+      { type: "section", text: { type: "mrkdwn", text: "*상담 요청*" } },
+      {
+        type: "section",
+        text: { type: "plain_text", text: "결제가 안 됩니다", emoji: false },
+      },
+    ];
+
+    await postSlackMessage({ text: "상담 요청 · 결제가 안 됩니다", blocks });
+
+    const [, request] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(String(request?.body))).toEqual({
+      channel: CHANNEL_ID,
+      text: "상담 요청 · 결제가 안 됩니다",
+      blocks,
+    });
   });
 
   it("includes thread_ts when a thread timestamp is provided", async () => {

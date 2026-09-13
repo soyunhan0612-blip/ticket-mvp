@@ -5,9 +5,88 @@ import {
   isOperatorMode,
   summarizeForOperator,
 } from "../../core/escalation";
-import { wrapUserInput } from "../../core/sanitize";
+import { neutralizeInput } from "../../core/sanitize";
 
 export const OPERATOR_HANDOFF_SUMMARY_LIMIT = 1_000;
+
+const SLACK_HEADLINE = "상담 요청";
+const SLACK_REPLY_HINT = "스레드로 답장하면 손님에게 전달됩니다";
+
+export type SlackBlock =
+  | { type: "section"; text: { type: "mrkdwn"; text: string } }
+  | {
+      type: "section";
+      text: { type: "plain_text"; text: string; emoji: false };
+    }
+  | {
+      type: "context";
+      elements: readonly { type: "mrkdwn"; text: string }[];
+    };
+
+export interface SlackMessage {
+  text: string;
+  blocks: readonly SlackBlock[];
+}
+
+/**
+ * Slack이 엔티티로 되돌리는 세 글자만 막는다. 보안 조치가 아니라 표시가
+ * 깨지지 않게 하는 장치다 — 인젝션 방어는 모델에 넘기기 직전에 건다.
+ */
+function escapeSlackText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+/** 손님이 친 문자열은 언제나 plain_text로 싣는다. mrkdwn에 넣으면 `*`나
+ * 백틱이 서식으로 먹혀 문장이 깨진다. */
+function guestBlock(text: string): SlackBlock {
+  return {
+    type: "section",
+    text: { type: "plain_text", text: escapeSlackText(text), emoji: false },
+  };
+}
+
+function buildRequestMessage(input: {
+  conversationId: string;
+  summary: string;
+  note?: string;
+}): SlackMessage {
+  const summary = neutralizeInput(
+    input.summary,
+    OPERATOR_HANDOFF_SUMMARY_LIMIT,
+  );
+  const headline =
+    input.note === undefined
+      ? `*${SLACK_HEADLINE}*`
+      : `*${SLACK_HEADLINE}* · ${input.note}`;
+
+  return {
+    text: `${SLACK_HEADLINE} · ${escapeSlackText(summary)}`,
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text: headline } },
+      guestBlock(summary),
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `${SLACK_REPLY_HINT} · \`${input.conversationId}\``,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** 모델이 `escalate_to_human`으로 올리는 경로. */
+export function buildEscalationMessage(input: {
+  conversationId: string;
+  summary: string;
+}): SlackMessage {
+  return buildRequestMessage(input);
+}
 
 export interface OperatorHandoffDeps {
   conversationId: string;
@@ -18,6 +97,7 @@ export interface OperatorHandoffDeps {
   >;
   postMessage: (input: {
     text: string;
+    blocks?: readonly SlackBlock[];
     threadTs?: string;
   }) => Promise<{ ts: string }>;
   now: () => number;
@@ -28,21 +108,24 @@ export type OperatorHandoffResult =
   | { status: "already_connected" }
   | { status: "unavailable" };
 
+/** 손님이 버튼으로 올리는 경로. 모델 판단이 아니라는 것만 덧붙인다. */
 export function buildHandoffMessage(input: {
   conversationId: string;
   summary: string;
-}): string {
-  return [
-    "관람객이 상담원 연결을 직접 요청했습니다",
-    `대화 ID: ${input.conversationId}`,
-    "최근 문의:",
-    wrapUserInput(input.summary, OPERATOR_HANDOFF_SUMMARY_LIMIT),
-    "이 메시지에 스레드로 답장하면 손님 화면에 전달됩니다.",
-  ].join("\n");
+}): SlackMessage {
+  return buildRequestMessage({ ...input, note: "손님이 직접 연결" });
 }
 
-export function buildRelayMessage(message: string, limit: number): string {
-  return wrapUserInput(message, limit);
+/**
+ * 연결된 뒤 손님이 치는 매 메시지. 화자는 Slack 아바타가, 대화 ID는 스레드
+ * 루트가 이미 말하므로 머리말 없이 한 줄로 보낸다.
+ */
+export function buildRelayMessage(
+  message: string,
+  limit: number,
+): SlackMessage {
+  const text = neutralizeInput(message, limit);
+  return { text, blocks: [guestBlock(text)] };
 }
 
 /**
@@ -65,11 +148,11 @@ export async function startOperatorHandoff(
       return { status: "already_connected" };
     }
 
-    const text = buildHandoffMessage({
+    const message = buildHandoffMessage({
       conversationId: deps.conversationId,
       summary: summarizeForOperator(conversation.turns),
     });
-    ts = (await deps.postMessage({ text })).ts;
+    ts = (await deps.postMessage(message)).ts;
   } catch {
     return { status: "unavailable" };
   }
@@ -114,7 +197,7 @@ export async function relayGuestMessage(deps: {
 }): Promise<boolean> {
   try {
     await deps.postMessage({
-      text: buildRelayMessage(deps.message, deps.limit),
+      ...buildRelayMessage(deps.message, deps.limit),
       threadTs: deps.threadTs,
     });
     return true;

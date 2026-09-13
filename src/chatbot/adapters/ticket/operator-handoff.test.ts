@@ -4,11 +4,11 @@ import {
   OPERATOR_HANDOFF_EMPTY_SUMMARY,
   OPERATOR_HANDOFF_TEXT,
 } from "../../core/escalation";
-import { USER_INPUT_END, USER_INPUT_START } from "../../core/sanitize";
 import type { Conversation } from "@/types";
 
 import {
   OPERATOR_HANDOFF_SUMMARY_LIMIT,
+  buildEscalationMessage,
   buildHandoffMessage,
   buildRelayMessage,
   relayGuestMessage,
@@ -66,56 +66,142 @@ function makeDeps(conversation: Conversation = makeConversation()) {
 }
 
 describe("buildHandoffMessage", () => {
-  it("names the conversation and marks the guest text boundary", () => {
-    const text = buildHandoffMessage({
+  it("splits the headline, the guest text and the conversation id into blocks", () => {
+    const message = buildHandoffMessage({
       conversationId: "conversation-123",
       summary: "결제가 안 됩니다",
     });
 
-    expect(text).toContain("conversation-123");
-    expect(text).toContain(USER_INPUT_START);
-    expect(text).toContain(USER_INPUT_END);
-    expect(text).toContain("결제가 안 됩니다");
-    expect(text).toContain("스레드로 답장");
+    expect(message.blocks).toEqual([
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*상담 요청* · 손님이 직접 연결" },
+      },
+      {
+        type: "section",
+        text: { type: "plain_text", text: "결제가 안 됩니다", emoji: false },
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "스레드로 답장하면 손님에게 전달됩니다 · `conversation-123`",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("repeats the guest text in the notification fallback", () => {
+    const message = buildHandoffMessage({
+      conversationId: "conversation-123",
+      summary: "결제가 안 됩니다",
+    });
+
+    expect(message.text).toContain("결제가 안 됩니다");
+  });
+
+  it("leaves the model input delimiters out of Slack", () => {
+    // 인젝션 방어는 모델에 넘기기 직전(createHistory)에 건다. 슬랙은 출력
+    // 싱크라 구분자가 상담원에게 노이즈로만 남는다.
+    const message = buildHandoffMessage({
+      conversationId: "conversation-123",
+      summary: "결제가 안 됩니다",
+    });
+
+    expect(JSON.stringify(message)).not.toContain("USER_INPUT_START");
+  });
+
+  it("shows guest markup as literal characters", () => {
+    const message = buildHandoffMessage({
+      conversationId: "conversation-123",
+      summary: "*굵게* <script> & 앰퍼샌드",
+    });
+
+    expect(message.blocks[1]).toEqual({
+      type: "section",
+      text: {
+        type: "plain_text",
+        text: "*굵게* &lt;script&gt; &amp; 앰퍼샌드",
+        emoji: false,
+      },
+    });
   });
 
   it("says the guest asked for a person directly", () => {
-    const text = buildHandoffMessage({
+    const message = buildHandoffMessage({
       conversationId: "conversation-123",
       summary: OPERATOR_HANDOFF_EMPTY_SUMMARY,
     });
 
-    expect(text).toContain("직접");
+    expect(JSON.stringify(message.blocks[0])).toContain("직접");
   });
 
-  it("never carries the owner id", () => {
-    const text = buildHandoffMessage({
+  it("never carries the owner id outside the guest text", () => {
+    const message = buildHandoffMessage({
       conversationId: "conversation-123",
       summary: "private-user-id 를 그대로 친 손님",
     });
 
-    expect(text).toContain("conversation-123");
-    expect(text.split(USER_INPUT_START)[0]).not.toContain("private-user-id");
+    expect(JSON.stringify(message.blocks[0])).not.toContain("private-user-id");
+    expect(JSON.stringify(message.blocks[2])).toContain("conversation-123");
+    expect(JSON.stringify(message.blocks[2])).not.toContain("private-user-id");
   });
 
   it("truncates an oversized summary", () => {
-    const text = buildHandoffMessage({
+    const message = buildHandoffMessage({
       conversationId: "conversation-123",
       summary: "가".repeat(OPERATOR_HANDOFF_SUMMARY_LIMIT + 500),
     });
 
-    expect(text).not.toContain("가".repeat(OPERATOR_HANDOFF_SUMMARY_LIMIT + 1));
-    expect(text).toContain("가".repeat(OPERATOR_HANDOFF_SUMMARY_LIMIT));
+    const body = JSON.stringify(message);
+    expect(body).not.toContain("가".repeat(OPERATOR_HANDOFF_SUMMARY_LIMIT + 1));
+    expect(body).toContain("가".repeat(OPERATOR_HANDOFF_SUMMARY_LIMIT));
+  });
+});
+
+describe("buildEscalationMessage", () => {
+  it("marks the model path without the direct-request note", () => {
+    const message = buildEscalationMessage({
+      conversationId: "conversation-123",
+      summary: "결제가 안 됩니다",
+    });
+
+    expect(message.blocks[0]).toEqual({
+      type: "section",
+      text: { type: "mrkdwn", text: "*상담 요청*" },
+    });
+    expect(message.blocks[1]).toEqual({
+      type: "section",
+      text: { type: "plain_text", text: "결제가 안 됩니다", emoji: false },
+    });
   });
 });
 
 describe("buildRelayMessage", () => {
-  it("wraps the guest message in the input boundary", () => {
-    const text = buildRelayMessage("추가 질문입니다", 100);
+  it("sends the guest message as one plain-text block", () => {
+    const message = buildRelayMessage("추가 질문입니다", 100);
 
-    expect(text).toContain(USER_INPUT_START);
-    expect(text).toContain("추가 질문입니다");
-    expect(text).toContain(USER_INPUT_END);
+    expect(message.text).toBe("추가 질문입니다");
+    expect(message.blocks).toEqual([
+      {
+        type: "section",
+        text: { type: "plain_text", text: "추가 질문입니다", emoji: false },
+      },
+    ]);
+  });
+
+  it("drops the delimiters that made every relayed line three lines", () => {
+    const message = buildRelayMessage("추가 질문입니다", 100);
+
+    expect(JSON.stringify(message)).not.toContain("USER_INPUT_START");
+  });
+
+  it("truncates an oversized message", () => {
+    const message = buildRelayMessage("가".repeat(150), 100);
+
+    expect(message.text).toBe("가".repeat(100));
   });
 });
 
@@ -242,7 +328,7 @@ describe("relayGuestMessage", () => {
     expect(postMessage).toHaveBeenCalledTimes(1);
     expect(postMessage.mock.calls[0][0].threadTs).toBe(SLACK_THREAD_TS);
     expect(postMessage.mock.calls[0][0].text).toContain("추가 질문입니다");
-    expect(postMessage.mock.calls[0][0].text).toContain(USER_INPUT_START);
+    expect(postMessage.mock.calls[0][0].blocks).toHaveLength(1);
   });
 
   it("reports a failure instead of throwing", async () => {
