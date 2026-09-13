@@ -3,6 +3,31 @@
 Day별 진행 결과와 결정 근거. 서사 문서.
 기계 요약은 `phases/*/index.json`에, 커밋 히스토리는 `git log`에.
 
+## 단계 요약
+
+| Day | 주요 산출물 |
+|---|---|
+| 0 Foundation | Next.js 15·TS strict·Tailwind·TanStack Query·Jotai·Vitest 기반, 도메인 타입, 좌석 순수 로직, 공연 8개·회차 24개 시드 |
+| 1 기반 + 사고 방지 | `.env*` 차단, 보안 헤더 3종, TDD/Stop 훅 범위 정리 (Day 0에 흡수) |
+| 2 목록·상세 | `/shows`, `/shows/[id]` RSC, 조회 API, UI 토큰, Vercel 조기 배포 |
+| 3 좌석맵 before | 2,000석 SVG와 의도적인 전역 배열/prop drilling 대조군, 자동 계측 픽스처 |
+| 4 좌석 최적화 | Jotai `atomFamily` + `React.memo`로 좌석별 구독 격리 |
+| 5 서버 hold | 익명 UUID 쿠키, 5분 hold, 최대 4석·좌석 ID·소유권 서버 검증, 다중 좌석 전체 성공/실패 |
+| 6 폴링·롤백 | 3초 스냅샷 폴링, 낙관적 hold, 409 전체 롤백, 충돌 토스트, 서버 시각 기반 타이머 |
+| 7 예매 | 예매 확정·내역·취소, 사용자별 조회와 소유권 검증, 실패 시 보상 롤백 |
+| 8 셀러·AI | 3종 좌석 프리셋(500·1,000·2,000석) 공연 등록, Haiku 4.5 설명 스트리밍과 키 없는 fallback, IP 단위 요청 제한, Basic Auth |
+| 9 Admin·Redis | 재사용 좌석맵 기반 Admin, SVG `viewBox` 줌/팬, Redis Store·Lua·팩토리 교체; 로컬·프로덕션 양쪽에서 Redis 연결 확인 |
+| 10 릴리스 | Basic Auth fail-closed 수정, README 정리. 당시 실측값이 없어 지표 문서화 단계는 [`blocked`](../phases/10-release/index.json)로 멈췄고, 2026-09-13 실측으로 채웠다 |
+| 11 성능 계측 | 렌더 카운터와 before/after 계측 테스트로 리렌더 수를 실측, 측정 절차를 [Perf Measurement](PERF_MEASUREMENT.md)에 문서화 |
+| 12 AI 운영 조회 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
+| 13 운영 Agent | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |
+| 14 운영 자동화 | 판매율 임계값(기본 90%) 판정을 `src/lib/sellout-alert.ts` 순수 함수로 분리, 기존 Basic 게이트 아래의 `GET /api/admin/alerts/sellout`이 대상 회차와 알림 문구까지 만들어 응답, n8n 4노드 워크플로 export와 재현 절차를 [`ops/n8n/`](../ops/n8n/)에 커밋 |
+| 15 챗봇 | 도메인 의존성이 0인 `src/chatbot/core/`와 티켓 어댑터·위젯으로 가른 이식 단위(경계를 import 테스트로 고정), 조회 전용 Tool 5개, 게이트 밖 공개 스트리밍 `POST /api/chat`과 복원용 `GET /api/chat/[conversationId]`, 대화는 24시간 TTL로 Redis에 영속화 |
+| 16 상담원 연결 | 조회로 답할 수 없는 문의를 Slack으로 넘기고 서명 검증된 스레드 답장을 대화에 저장, 대기 중에만 3초 폴링해 상담원 답장과 1분 자동 안내를 표시, 재현 절차를 [`ops/slack/`](../ops/slack/)에 문서화 |
+| 16+ 상담원 직접 문의 | 손님이 직접 누르는 `POST /api/chat/handoff`, 연결된 뒤의 메시지는 `POST /api/chat`이 모델 대신 Slack 스레드로 릴레이, 두 진입점이 시간당 3회 버킷을 공유 |
+
+Day 10~16은 Day 0~9 구현 이후의 릴리스·계측·확장 작업이다. 남은 수동 검증은 [Test Scenarios](TEST_SCENARIOS.md)에 있다.
+
 ---
 
 ## Day 0 — Foundation (완료 2026-08-06)
@@ -68,7 +93,7 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - phase 1-shows-rsc 커밋: `feat(1-shows-rsc): step 0~5` (6개 step)
 - Vercel 프로덕션: https://ticket-mvp-eight.vercel.app
 
-## Day 3 — 좌석 최적화 before (리렌더 측정 완료, 초기 마운트 측정 대기)
+## Day 3 — 좌석 최적화 before (측정 완료)
 
 ### 기능적 관점
 - `/sessions/[id]/seats` RSC 셸 + 클라이언트 `<SeatMap>` 하이드레이션
@@ -91,20 +116,21 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - **왜 4색을 monochrome 밝기 대비로만 정했나**: UI_GUIDE AI 슬롭 안티패턴(보라·글로우·그라데이션) 회피. 도구처럼 읽히는 좌석맵이 시그니처가 되도록
 - **왜 SelectionBar의 확정 버튼을 alert로 stub했나**: 서버 hold API가 아직 없음. Day 5에 이 자리를 `POST /api/holds` 낙관적 업데이트로 교체 — 이번 phase에 넣으면 서사가 두 곳으로 흩어짐
 
-### before 측정 (자동 계측 / React DevTools Profiler)
-> 클릭당 React 리렌더 수는 자동 계측을 완료했다. 초기 마운트 시간만 브라우저 수동 측정을 기다린다.
+### before 측정 (자동 계측 + 브라우저 실측)
 
-- 초기 마운트 시간: **TBD (수동 측정 대기)** — [측정 절차](PERF_MEASUREMENT.md#3-day-3before-초기-마운트-시간) 참조
+자동 계측(리렌더 수)과 브라우저 실측(시간) 모두 완료했다.
+
 - 좌석 1회 클릭 시 React 좌석 컴포넌트 리렌더 수: **200회 (200석 기준, 폴링 제외)** — [`naive-render-count.test.tsx`](../src/components/seat/__tests__/naive-render-count.test.tsx)
-- 측정 근거: 커밋 `91713d0`의 Day 3 구현을 재현한 [`naive-seat-map.tsx`](../src/components/seat/__fixtures__/naive-seat-map.tsx) 픽스처. 리렌더 수가 전체 좌석 수와 같음을 검증하므로 2,000석 구조에서는 2,000회로 비례한다.
-- 초기 마운트 측정 절차: `npm run dev` → `/sessions/session-01/seats` → React DevTools Profiler `Record` → 새로고침 → 첫 번째 커밋 확인
-- 스크린샷: `docs/assets/day3-before-profiler.png` (미첨부 상태로 커밋되었으면 이후 별도 커밋)
+- 좌석 1회 클릭 시 커밋 시간: **27.1 ms** (2,000석)
+- 초기 마운트 — 좌석 컴포넌트 2,000개 렌더 합계: **43.4 ms** / 페이지 하이드레이션 커밋 전체: **96.6 ms**
+- 자동 계측 근거: 커밋 `91713d0`의 Day 3 구현을 재현한 [`naive-seat-map.tsx`](../src/components/seat/__fixtures__/naive-seat-map.tsx) 픽스처. 리렌더 수가 전체 좌석 수와 같음을 검증하므로 2,000석 구조에서는 2,000회로 비례한다.
+- 브라우저 실측 근거: 좌석 페이지가 처음 붙은 커밋 `cad06ec`을 별도 worktree에 받아 `next build --profile`로 빌드하고 [`measure-initial-mount.mjs`](../scripts/perf/measure-initial-mount.mjs)로 5회 측정한 중앙값. 원본 JSON은 [`assets/perf/initial-mount-before.json`](assets/perf/initial-mount-before.json), 절차는 [Perf Measurement](PERF_MEASUREMENT.md#2-실측-결과-2026-09-13).
 
 ### 참조
 - 이 phase 커밋(2단계): `feat(2-seat-v0): …` / `chore(2-seat-v0): …`
 - 다음: Day 4에서 `atoms/seat.ts` (atomFamily) + `React.memo(Seat)` → after 측정 캡처
 
-## Day 4 — 좌석 최적화 after (리렌더 측정 완료, 초기 마운트 측정 대기)
+## Day 4 — 좌석 최적화 after (측정 완료)
 
 ### 기능적 관점
 - 좌석 클릭 시 React 리렌더 범위를 해당 좌석 1개로 한정하는 구조로 전환 (200석·폴링 제외 자동 계측 기준, 이전: 200개)
@@ -127,15 +153,16 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - **왜 `held-mine`을 `selected`와 동일 처리하나**: UI_GUIDE의 4색 체계를 늘리지 않으면서 사용자에게 모두 "내 좌석"이라는 동일한 시각 신호를 주기 위해서
 - `atomFamily`가 개선하는 범위는 **클릭 같은 업데이트 시 리렌더**다. 2000개 SVG 노드를 생성하는 초기 마운트 비용은 구조적으로 남으므로 개선되었다고 간주하지 않고 별도 측정
 
-### after 측정 (자동 계측 / React DevTools Profiler)
-> 클릭당 React 리렌더와 파생 atom 재계산은 자동 계측을 완료했다. 초기 마운트 시간만 브라우저 수동 측정을 기다린다.
+### after 측정 (자동 계측 + 브라우저 실측)
 
-- 초기 마운트 시간: **TBD (수동 측정 대기)** (Day 3도 동일) — [측정 절차](PERF_MEASUREMENT.md#2-현재-구현의-초기-마운트-시간) 참조
+- 좌석 1회 클릭 시 커밋 시간: **0.7 ms** (Day 3: **27.1 ms**) — 2,000석 기준 39배
+- 초기 마운트 — 좌석 컴포넌트 2,000개 렌더 합계: **142.5 ms** (Day 3: **43.4 ms**). 개선이 아니라 **3.3배 악화**다. 좌석마다 파생 atom 하나와 `useAtomValue` 구독 두 개를 만드는 비용이 마운트 시점에 2,000번 발생한다. 업데이트 비용과 맞바꾼 결과이며 [ADR-002](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)에 그대로 기록했다.
+- 페이지 하이드레이션 커밋 전체: **218.1 ms** (Day 3: 96.6 ms). 현재 페이지에는 Day 3에 없던 `ZoomPanSvg`·3초 폴링·`ConfirmBar`·문의 위젯이 함께 마운트되므로 이 행은 동일 조건 비교가 아니다.
 - 좌석 1회 클릭 시 React 좌석 컴포넌트 리렌더 수: **1회 (200석 기준, 폴링 제외)** (Day 3: **200회**) — [`seat-render-count.test.tsx`](../src/components/seat/__tests__/seat-render-count.test.tsx)
 - 파생 atom 재계산 횟수: **200회 (200석 기준, 전체 좌석 수와 동일)** — `seatVisualStateAtomFamily`가 `selectedSeatIdsAtom` 전체를 구독하므로 선택 변경 시 모든 좌석의 read가 재실행된다. 반환값이 같은 199석은 Jotai가 React 리렌더를 건너뛴다. 2,000석 구조에서는 재계산도 2,000회로 비례한다.
+- 그 2,000회 재계산이 실제로 얼마인지도 실측했다. **클릭 커밋 전체가 0.7 ms이고 재계산은 그 안에 들어 있다.** `selectAtom`으로 바꿔도 재계산 횟수는 줄지 않는 이유와, 줄이려면 무엇을 포기해야 하는지는 [ADR-002](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)에 적었다.
 - 자동 계측 조건: 현재 `ZoomPanSvg` 포함 구조에서 `SeatMap`을 직접 렌더해 3초 폴링을 제외했다. `npm test -- src/components/seat/__tests__`로 재현할 수 있다.
-- 초기 마운트 측정 절차: `npm run dev` → `/sessions/session-01/seats` → React DevTools Profiler → 새로고침 → 첫 번째 커밋 확인
-- 스크린샷: `docs/assets/day4-after-profiler.png`
+- 브라우저 실측 근거: 현재 커밋을 별도 worktree에 받아 `next build --profile`로 빌드하고 [`measure-initial-mount.mjs`](../scripts/perf/measure-initial-mount.mjs)로 5회 측정한 중앙값. 원본 JSON은 [`assets/perf/initial-mount-after.json`](assets/perf/initial-mount-after.json).
 
 ### 참조
 - 이 phase 커밋: `feat(3-seat-perf): ...`
@@ -283,7 +310,7 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 
 ### 성능 측정 후속
 - `ZoomPanSvg`를 포함한 현재 구조의 클릭당 수치는 자동 계측 완료: 200석·폴링 제외 기준 React `Seat` 리렌더 1회, 파생 atom 재계산 200회
-- 브라우저 React DevTools Profiler가 필요한 초기 마운트 시간만 [수동 측정 절차](PERF_MEASUREMENT.md)에 따라 기록해야 함
+- 브라우저가 필요한 초기 마운트 시간과 클릭 커밋 시간도 2026-09-13에 실측 완료: 클릭 커밋 27.1 ms → 0.7 ms, 좌석 2,000개 마운트 합계 43.4 ms → 142.5 ms ([Perf Measurement](PERF_MEASUREMENT.md#2-실측-결과-2026-09-13))
 
 ### 참조
 - phase `8-admin` step 0~5 완료
