@@ -93,6 +93,7 @@ export function LoginDialog(): JSX.Element {
           id="login-username"
           label="사용자명"
           name="username"
+          placeholder="1111"
           required
         />
         <TextInput
@@ -100,6 +101,7 @@ export function LoginDialog(): JSX.Element {
           id="login-password"
           label="비밀번호"
           name="password"
+          placeholder="1111"
           required
           type="password"
         />
