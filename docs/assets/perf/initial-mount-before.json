@@ -1,0 +1,317 @@
+{
+  "label": "before — Day 3 naive (useState + prop drilling), next build --profile",
+  "url": "http://localhost:3101/sessions/session-01/seats",
+  "measuredAt": "2026-09-13T12:05:35.563Z",
+  "environment": {
+    "node": "v22.23.2",
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz",
+    "cores": 8,
+    "headless": true
+  },
+  "runs": [
+    {
+      "mountActualDuration": 91.69999986886978,
+      "mountTreeBaseDuration": 68.00000017881393,
+      "mountCommitAt": 721.1999999880791,
+      "seatComponentsActualDuration": 35.89999985694885,
+      "seatComponentInstances": 2000,
+      "topTypes": [
+        {
+          "name": "f",
+          "count": 7,
+          "actualDuration": 504.2
+        },
+        {
+          "name": "f",
+          "count": 6,
+          "actualDuration": 415.7
+        },
+        {
+          "name": "s",
+          "count": 6,
+          "actualDuration": 415.3
+        },
+        {
+          "name": null,
+          "count": 6,
+          "actualDuration": 414.7
+        },
+        {
+          "name": "M",
+          "count": 5,
+          "actualDuration": 340.4
+        },
+        {
+          "name": null,
+          "count": 5,
+          "actualDuration": 339.1
+        },
+        {
+          "name": "a",
+          "count": 5,
+          "actualDuration": 339
+        },
+        {
+          "name": "j",
+          "count": 5,
+          "actualDuration": 338.9
+        }
+      ],
+      "firstContentfulPaint": 336,
+      "domContentLoaded": 560.0999999642372,
+      "loadEvent": 560.5,
+      "clickCommitActualDuration": 28.899999916553497,
+      "clickCommitCount": 1,
+      "clickedSeatId": "B-5-1",
+      "longTaskTotalDuringMount": 240,
+      "longTaskCount": 3,
+      "commitCount": 5,
+      "seatCount": 2000
+    },
+    {
+      "mountActualDuration": 103.89999973773956,
+      "mountTreeBaseDuration": 78.89999955892563,
+      "mountCommitAt": 705.5,
+      "seatComponentsActualDuration": 46.599999725818634,
+      "seatComponentInstances": 2000,
+      "topTypes": [
+        {
+          "name": "f",
+          "count": 7,
+          "actualDuration": 587.3
+        },
+        {
+          "name": "f",
+          "count": 6,
+          "actualDuration": 487.2
+        },
+        {
+          "name": "s",
+          "count": 6,
+          "actualDuration": 486.8
+        },
+        {
+          "name": null,
+          "count": 6,
+          "actualDuration": 486.5
+        },
+        {
+          "name": "M",
+          "count": 5,
+          "actualDuration": 400
+        },
+        {
+          "name": null,
+          "count": 5,
+          "actualDuration": 398.8
+        },
+        {
+          "name": "a",
+          "count": 5,
+          "actualDuration": 398.8
+        },
+        {
+          "name": "j",
+          "count": 5,
+          "actualDuration": 398.5
+        }
+      ],
+      "firstContentfulPaint": 292,
+      "domContentLoaded": 530.0999999642372,
+      "loadEvent": 530.5999999642372,
+      "clickCommitActualDuration": 27.100000381469727,
+      "clickCommitCount": 1,
+      "clickedSeatId": "B-5-1",
+      "longTaskTotalDuringMount": 193,
+      "longTaskCount": 3,
+      "commitCount": 5,
+      "seatCount": 2000
+    },
+    {
+      "mountActualDuration": 96.59999978542328,
+      "mountTreeBaseDuration": 74.700000166893,
+      "mountCommitAt": 702.6999999880791,
+      "seatComponentsActualDuration": 40.099999845027924,
+      "seatComponentInstances": 2000,
+      "topTypes": [
+        {
+          "name": "f",
+          "count": 7,
+          "actualDuration": 529.1
+        },
+        {
+          "name": "f",
+          "count": 6,
+          "actualDuration": 436.8
+        },
+        {
+          "name": "s",
+          "count": 6,
+          "actualDuration": 436.4
+        },
+        {
+          "name": null,
+          "count": 6,
+          "actualDuration": 436
+        },
+        {
+          "name": "M",
+          "count": 5,
+          "actualDuration": 358.1
+        },
+        {
+          "name": null,
+          "count": 5,
+          "actualDuration": 356.8
+        },
+        {
+          "name": "a",
+          "count": 5,
+          "actualDuration": 356.6
+        },
+        {
+          "name": "j",
+          "count": 5,
+          "actualDuration": 356.5
+        }
+      ],
+      "firstContentfulPaint": 388,
+      "domContentLoaded": 399.5,
+      "loadEvent": 542.8999999761581,
+      "clickCommitActualDuration": 23.199999690055847,
+      "clickCommitCount": 1,
+      "clickedSeatId": "B-5-1",
+      "longTaskTotalDuringMount": 287,
+      "longTaskCount": 3,
+      "commitCount": 5,
+      "seatCount": 2000
+    },
+    {
+      "mountActualDuration": 93.09999990463257,
+      "mountTreeBaseDuration": 68.4999989271164,
+      "mountCommitAt": 715.8000000119209,
+      "seatComponentsActualDuration": 43.79999989271164,
+      "seatComponentInstances": 2000,
+      "topTypes": [
+        {
+          "name": "f",
+          "count": 7,
+          "actualDuration": 518.9
+        },
+        {
+          "name": "f",
+          "count": 6,
+          "actualDuration": 430
+        },
+        {
+          "name": "s",
+          "count": 6,
+          "actualDuration": 429.6
+        },
+        {
+          "name": null,
+          "count": 6,
+          "actualDuration": 429.6
+        },
+        {
+          "name": "M",
+          "count": 5,
+          "actualDuration": 353.4
+        },
+        {
+          "name": null,
+          "count": 5,
+          "actualDuration": 352
+        },
+        {
+          "name": "a",
+          "count": 5,
+          "actualDuration": 351.9
+        },
+        {
+          "name": "j",
+          "count": 5,
+          "actualDuration": 351.7
+        }
+      ],
+      "firstContentfulPaint": 360,
+      "domContentLoaded": 560.3999999761581,
+      "loadEvent": 560.6999999880791,
+      "clickCommitActualDuration": 27.800000488758087,
+      "clickCommitCount": 1,
+      "clickedSeatId": "B-5-1",
+      "longTaskTotalDuringMount": 227,
+      "longTaskCount": 3,
+      "commitCount": 5,
+      "seatCount": 2000
+    },
+    {
+      "mountActualDuration": 102.1000000834465,
+      "mountTreeBaseDuration": 78.10000020265579,
+      "mountCommitAt": 725.2999999523163,
+      "seatComponentsActualDuration": 43.400000154972076,
+      "seatComponentInstances": 2000,
+      "topTypes": [
+        {
+          "name": "f",
+          "count": 7,
+          "actualDuration": 568
+        },
+        {
+          "name": "f",
+          "count": 6,
+          "actualDuration": 470.7
+        },
+        {
+          "name": "s",
+          "count": 6,
+          "actualDuration": 470.3
+        },
+        {
+          "name": null,
+          "count": 6,
+          "actualDuration": 470.1
+        },
+        {
+          "name": "M",
+          "count": 5,
+          "actualDuration": 386.9
+        },
+        {
+          "name": null,
+          "count": 5,
+          "actualDuration": 385.8
+        },
+        {
+          "name": "a",
+          "count": 5,
+          "actualDuration": 385.7
+        },
+        {
+          "name": "j",
+          "count": 5,
+          "actualDuration": 385.4
+        }
+      ],
+      "firstContentfulPaint": 324,
+      "domContentLoaded": 551.2999999523163,
+      "loadEvent": 551.5999999642372,
+      "clickCommitActualDuration": 26.70000010728836,
+      "clickCommitCount": 1,
+      "clickedSeatId": "B-5-1",
+      "longTaskTotalDuringMount": 235,
+      "longTaskCount": 3,
+      "commitCount": 5,
+      "seatCount": 2000
+    }
+  ],
+  "median": {
+    "mountActualDuration": 96.6,
+    "seatComponentsActualDuration": 43.4,
+    "clickCommitActualDuration": 27.1,
+    "firstContentfulPaint": 336,
+    "longTaskTotalDuringMount": 235,
+    "seatCount": 2000
+  }
+}

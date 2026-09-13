@@ -68,7 +68,7 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - phase 1-shows-rsc 커밋: `feat(1-shows-rsc): step 0~5` (6개 step)
 - Vercel 프로덕션: https://ticket-mvp-eight.vercel.app
 
-## Day 3 — 좌석 최적화 before (리렌더 측정 완료, 초기 마운트 측정 대기)
+## Day 3 — 좌석 최적화 before (측정 완료)
 
 ### 기능적 관점
 - `/sessions/[id]/seats` RSC 셸 + 클라이언트 `<SeatMap>` 하이드레이션
@@ -91,20 +91,21 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - **왜 4색을 monochrome 밝기 대비로만 정했나**: UI_GUIDE AI 슬롭 안티패턴(보라·글로우·그라데이션) 회피. 도구처럼 읽히는 좌석맵이 시그니처가 되도록
 - **왜 SelectionBar의 확정 버튼을 alert로 stub했나**: 서버 hold API가 아직 없음. Day 5에 이 자리를 `POST /api/holds` 낙관적 업데이트로 교체 — 이번 phase에 넣으면 서사가 두 곳으로 흩어짐
 
-### before 측정 (자동 계측 / React DevTools Profiler)
-> 클릭당 React 리렌더 수는 자동 계측을 완료했다. 초기 마운트 시간만 브라우저 수동 측정을 기다린다.
+### before 측정 (자동 계측 + 브라우저 실측)
 
-- 초기 마운트 시간: **TBD (수동 측정 대기)** — [측정 절차](PERF_MEASUREMENT.md#3-day-3before-초기-마운트-시간) 참조
+자동 계측(리렌더 수)과 브라우저 실측(시간) 모두 완료했다.
+
 - 좌석 1회 클릭 시 React 좌석 컴포넌트 리렌더 수: **200회 (200석 기준, 폴링 제외)** — [`naive-render-count.test.tsx`](../src/components/seat/__tests__/naive-render-count.test.tsx)
-- 측정 근거: 커밋 `91713d0`의 Day 3 구현을 재현한 [`naive-seat-map.tsx`](../src/components/seat/__fixtures__/naive-seat-map.tsx) 픽스처. 리렌더 수가 전체 좌석 수와 같음을 검증하므로 2,000석 구조에서는 2,000회로 비례한다.
-- 초기 마운트 측정 절차: `npm run dev` → `/sessions/session-01/seats` → React DevTools Profiler `Record` → 새로고침 → 첫 번째 커밋 확인
-- 스크린샷: `docs/assets/day3-before-profiler.png` (미첨부 상태로 커밋되었으면 이후 별도 커밋)
+- 좌석 1회 클릭 시 커밋 시간: **27.1 ms** (2,000석)
+- 초기 마운트 — 좌석 컴포넌트 2,000개 렌더 합계: **43.4 ms** / 페이지 하이드레이션 커밋 전체: **96.6 ms**
+- 자동 계측 근거: 커밋 `91713d0`의 Day 3 구현을 재현한 [`naive-seat-map.tsx`](../src/components/seat/__fixtures__/naive-seat-map.tsx) 픽스처. 리렌더 수가 전체 좌석 수와 같음을 검증하므로 2,000석 구조에서는 2,000회로 비례한다.
+- 브라우저 실측 근거: 좌석 페이지가 처음 붙은 커밋 `cad06ec`을 별도 worktree에 받아 `next build --profile`로 빌드하고 [`measure-initial-mount.mjs`](../scripts/perf/measure-initial-mount.mjs)로 5회 측정한 중앙값. 원본 JSON은 [`assets/perf/initial-mount-before.json`](assets/perf/initial-mount-before.json), 절차는 [Perf Measurement](PERF_MEASUREMENT.md#2-실측-결과-2026-09-13).
 
 ### 참조
 - 이 phase 커밋(2단계): `feat(2-seat-v0): …` / `chore(2-seat-v0): …`
 - 다음: Day 4에서 `atoms/seat.ts` (atomFamily) + `React.memo(Seat)` → after 측정 캡처
 
-## Day 4 — 좌석 최적화 after (리렌더 측정 완료, 초기 마운트 측정 대기)
+## Day 4 — 좌석 최적화 after (측정 완료)
 
 ### 기능적 관점
 - 좌석 클릭 시 React 리렌더 범위를 해당 좌석 1개로 한정하는 구조로 전환 (200석·폴링 제외 자동 계측 기준, 이전: 200개)
@@ -127,15 +128,16 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 - **왜 `held-mine`을 `selected`와 동일 처리하나**: UI_GUIDE의 4색 체계를 늘리지 않으면서 사용자에게 모두 "내 좌석"이라는 동일한 시각 신호를 주기 위해서
 - `atomFamily`가 개선하는 범위는 **클릭 같은 업데이트 시 리렌더**다. 2000개 SVG 노드를 생성하는 초기 마운트 비용은 구조적으로 남으므로 개선되었다고 간주하지 않고 별도 측정
 
-### after 측정 (자동 계측 / React DevTools Profiler)
-> 클릭당 React 리렌더와 파생 atom 재계산은 자동 계측을 완료했다. 초기 마운트 시간만 브라우저 수동 측정을 기다린다.
+### after 측정 (자동 계측 + 브라우저 실측)
 
-- 초기 마운트 시간: **TBD (수동 측정 대기)** (Day 3도 동일) — [측정 절차](PERF_MEASUREMENT.md#2-현재-구현의-초기-마운트-시간) 참조
+- 좌석 1회 클릭 시 커밋 시간: **0.7 ms** (Day 3: **27.1 ms**) — 2,000석 기준 39배
+- 초기 마운트 — 좌석 컴포넌트 2,000개 렌더 합계: **142.5 ms** (Day 3: **43.4 ms**). 개선이 아니라 **3.3배 악화**다. 좌석마다 파생 atom 하나와 `useAtomValue` 구독 두 개를 만드는 비용이 마운트 시점에 2,000번 발생한다. 업데이트 비용과 맞바꾼 결과이며 [ADR-002](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)에 그대로 기록했다.
+- 페이지 하이드레이션 커밋 전체: **218.1 ms** (Day 3: 96.6 ms). 현재 페이지에는 Day 3에 없던 `ZoomPanSvg`·3초 폴링·`ConfirmBar`·문의 위젯이 함께 마운트되므로 이 행은 동일 조건 비교가 아니다.
 - 좌석 1회 클릭 시 React 좌석 컴포넌트 리렌더 수: **1회 (200석 기준, 폴링 제외)** (Day 3: **200회**) — [`seat-render-count.test.tsx`](../src/components/seat/__tests__/seat-render-count.test.tsx)
 - 파생 atom 재계산 횟수: **200회 (200석 기준, 전체 좌석 수와 동일)** — `seatVisualStateAtomFamily`가 `selectedSeatIdsAtom` 전체를 구독하므로 선택 변경 시 모든 좌석의 read가 재실행된다. 반환값이 같은 199석은 Jotai가 React 리렌더를 건너뛴다. 2,000석 구조에서는 재계산도 2,000회로 비례한다.
+- 그 2,000회 재계산이 실제로 얼마인지도 실측했다. **클릭 커밋 전체가 0.7 ms이고 재계산은 그 안에 들어 있다.** `selectAtom`으로 바꿔도 재계산 횟수는 줄지 않는 이유와, 줄이려면 무엇을 포기해야 하는지는 [ADR-002](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)에 적었다.
 - 자동 계측 조건: 현재 `ZoomPanSvg` 포함 구조에서 `SeatMap`을 직접 렌더해 3초 폴링을 제외했다. `npm test -- src/components/seat/__tests__`로 재현할 수 있다.
-- 초기 마운트 측정 절차: `npm run dev` → `/sessions/session-01/seats` → React DevTools Profiler → 새로고침 → 첫 번째 커밋 확인
-- 스크린샷: `docs/assets/day4-after-profiler.png`
+- 브라우저 실측 근거: 현재 커밋을 별도 worktree에 받아 `next build --profile`로 빌드하고 [`measure-initial-mount.mjs`](../scripts/perf/measure-initial-mount.mjs)로 5회 측정한 중앙값. 원본 JSON은 [`assets/perf/initial-mount-after.json`](assets/perf/initial-mount-after.json).
 
 ### 참조
 - 이 phase 커밋: `feat(3-seat-perf): ...`
@@ -283,7 +285,7 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 
 ### 성능 측정 후속
 - `ZoomPanSvg`를 포함한 현재 구조의 클릭당 수치는 자동 계측 완료: 200석·폴링 제외 기준 React `Seat` 리렌더 1회, 파생 atom 재계산 200회
-- 브라우저 React DevTools Profiler가 필요한 초기 마운트 시간만 [수동 측정 절차](PERF_MEASUREMENT.md)에 따라 기록해야 함
+- 브라우저가 필요한 초기 마운트 시간과 클릭 커밋 시간도 2026-09-13에 실측 완료: 클릭 커밋 27.1 ms → 0.7 ms, 좌석 2,000개 마운트 합계 43.4 ms → 142.5 ms ([Perf Measurement](PERF_MEASUREMENT.md#2-실측-결과-2026-09-13))
 
 ### 참조
 - phase `8-admin` step 0~5 완료

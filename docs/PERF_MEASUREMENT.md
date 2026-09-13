@@ -1,78 +1,114 @@
-# 성능 측정 절차
+# 성능 측정 절차와 결과
 
-이 문서는 아직 남은 수동 측정을 재현하고 결과를 기록하는 절차만 정의한다. 실측값은 이 문서에 적지 않는다.
+이 문서는 측정 방법, 재현 절차, 그리고 실제로 나온 값을 기록한다. 추정값은 적지 않는다. 값이 없는 항목은 없다고 적는다.
 
-## 1. 자동 측정과 수동 측정
+## 1. 측정 항목과 방식
 
 | 측정 항목 | 방식 | 근거 위치 |
 |---|---|---|
 | 좌석 클릭당 React 리렌더 수(before/after) | 자동 | `pnpm test` — `src/components/seat/__tests__/naive-render-count.test.tsx`, `src/components/seat/__tests__/seat-render-count.test.tsx` |
 | 파생 atom 재계산 수 | 자동 | `pnpm test` — `src/components/seat/__tests__/seat-render-count.test.tsx` |
-| 초기 마운트 시간 | **수동** | 브라우저 React DevTools Profiler — 아래 2·3절 |
-| 폴링 1회당 Upstash 커맨드 수 | **수동** | Upstash 콘솔 — 아래 6절 |
+| 초기 마운트 시간 · 클릭 커밋 시간 | 브라우저 실측 | `node scripts/perf/measure-initial-mount.mjs` — 아래 2·3·4절 |
+| 폴링 1회당 Upstash 커맨드 수 | **미측정** | Upstash 콘솔 확인 필요 — 아래 6절 |
 
-자동 항목은 예상 규모를 문서에 옮긴 추정값이 아니다. 테스트가 실행 중 렌더와 atom read를 직접 계측하고 assertion으로 검증한 결과다. 초기 마운트 시간은 jsdom에 실제 레이아웃·페인트 비용이 없어 브라우저에서 아직 측정해야 한다. Upstash 커맨드 수 측정은 새 값을 추정하는 작업이 아니라, ADR-004에서 코드 경로로 센 값이 콘솔의 실제 과금 단위와 일치하는지 확인하는 작업이다.
+자동 항목은 예상 규모를 문서에 옮긴 추정값이 아니다. 테스트가 실행 중 렌더와 atom read를 직접 계측하고 assertion으로 검증한 결과다. 브라우저 실측 항목은 jsdom에 레이아웃·페인트 비용이 없어 실제 브라우저에서 재야 하는 값이고, 3절의 스크립트가 그 일을 한다.
 
-## 2. 현재 구현의 초기 마운트 시간
+## 2. 실측 결과 (2026-09-13)
 
-1. Chrome 또는 Edge에 React DevTools 확장을 설치한다.
-2. 저장소 루트에서 `pnpm dev`를 실행한다.
-3. `http://localhost:3000/sessions/session-01/seats`에 접속한다. `session-01`은 `src/lib/mock-data.ts` 104줄에 있는 시드 세션이다.
-4. 개발자 도구의 React `Profiler` 탭에서 `Record`를 누르고 페이지를 새로고침한 뒤 `Stop`을 누른다.
-5. 좌석 페이지는 `src/hooks/use-seat-snapshot.ts` 11줄의 설정에 따라 3초마다 스냅샷을 폴링한다. 이때 `SeatMapContainer`·`SeatMap`·`ZoomPanSvg`가 함께 리렌더될 수 있다. 초기 마운트 측정에는 Profiler의 첫 번째 커밋만 사용하고, 이후 약 3초 간격의 커밋은 폴링 영향으로 보고 제외한다.
-6. Flamegraph 상단에서 첫 번째 커밋 막대를 선택하고 해당 커밋의 `duration`을 읽는다.
-7. 같은 절차를 3회 반복하고 세 값의 중앙값을 사용한다. 단일 측정은 개발 서버 상태와 브라우저 스케줄링에 따른 편차가 크다.
-8. 중앙값을 낸 회차의 첫 커밋과 duration이 함께 보이도록 캡처해 `docs/assets/day4-after-profiler.png`에 저장한다. 실제 Profiler 캡처만 저장하며 이미지를 임의로 만들지 않는다.
+프로덕션 프로파일링 빌드(`next build --profile`) 두 개를 각각 띄우고 5회 측정한 중앙값이다. 원본 데이터는 [`assets/perf/initial-mount-before.json`](assets/perf/initial-mount-before.json)과 [`assets/perf/initial-mount-after.json`](assets/perf/initial-mount-after.json)에 그대로 들어 있다(회차별 값·환경 정보 포함).
 
-## 3. Day 3(before) 초기 마운트 시간
+| 측정 | before (Day 3 순진한 구현) | after (현재 구현) |
+|---|---|---|
+| 좌석 1회 클릭 시 커밋 시간 | **27.1 ms** | **0.7 ms** |
+| 초기 마운트 — 좌석 컴포넌트 2,000개 렌더 합계 | **43.4 ms** | **142.5 ms** |
+| 초기 마운트 — 페이지 하이드레이션 커밋 전체 | 96.6 ms | 218.1 ms |
+| First Contentful Paint (참고) | 336 ms | 620 ms |
 
-Day 3의 순진한 구현은 현재 작업 트리에 없고 커밋 `91713d0`에만 있다. 다음 두 선택지 중 하나를 택한다.
+- 측정 환경: Intel Core i5-8250U(4C/8T) · Windows 11 · headless Chromium 1440×900 · localhost · 인메모리 Store · Next.js 15.5.22 / React 19.
+- before는 커밋 `cad06ec`(Day 3 `2-seat-v0` 완료 시점), after는 `e27ae6d`.
+- 두 페이지 모두 `<svg>` 안에 `<rect>` 좌석 2,000개를 렌더한다(스크립트가 매 회차 확인한다).
 
-1. 별도 worktree에서 측정한다.
+### 이 값이 말하는 것
 
-   ```bash
-   git worktree add ../ticket-mvp-day3 91713d0
-   cd ../ticket-mvp-day3
-   npm ci
-   npm run dev
-   ```
+**클릭은 39배 빨라졌다.** 27.1 ms → 0.7 ms. 순진한 구현은 클릭 한 번에 `SeatMap`의 `useState`가 바뀌면서 좌석 컴포넌트 2,000개가 전부 리렌더된다. 현재 구현은 `atomFamily`로 좌석마다 구독을 나눠 클릭한 좌석 1개만 리렌더된다. 자동 계측 테스트의 "200회 → 1회"(200석 기준)가 브라우저에서 시간으로 나타난 값이다.
 
-   이 커밋에는 `pnpm-lock.yaml`이 없으므로 worktree 안에서는 `npm`을 그대로 쓴다. 현재 개발 서버가 실행 중이면 먼저 종료해 포트 충돌을 피한다. 2절과 같은 URL과 3회 중앙값 절차를 사용하고 캡처는 `docs/assets/day3-before-profiler.png`에 저장한다. 측정이 끝난 뒤 원래 저장소에서 `git worktree remove ../ticket-mvp-day3`로 별도 worktree를 정리할 수 있다.
+**초기 마운트는 개선되지 않았다. 오히려 3.3배 느려졌다.** 좌석 컴포넌트 합계 43.4 ms → 142.5 ms, 좌석 하나당 약 21.7 µs → 71.3 µs. `atomFamily`는 좌석마다 파생 atom을 하나씩 만들고, 각 `Seat`는 `useAtomValue` 두 개로 store에 구독을 등록한다. 그 비용이 마운트 시점에 2,000번 발생한다. **업데이트 비용을 마운트 비용과 맞바꾼 것이고, 이 프로젝트의 좌석 화면은 한 번 열고 여러 번 클릭하는 화면이라 그 교환이 맞는 방향이라고 판단했다.** 근거는 [ADR-002](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)에 있다.
 
-   다만 이 커밋에는 현재 구현의 `ZoomPanSvg`, 서버 hold, 3초 폴링이 없다. 따라서 두 초기 마운트 시간은 동일 조건 비교가 아니며, 결과를 기록할 때 이 차이를 각주로 함께 남긴다.
+**파생 atom 2,000회 재계산은 클릭당 0.7 ms 안에 들어 있다.** 현재 구현에서 `seatVisualStateAtomFamily`는 전역 `selectedSeatIdsAtom`을 구독하므로 클릭 한 번에 좌석 수만큼 파생 read가 다시 실행된다. 그 재계산 전체와 좌석 1개 리렌더, 선택 바 갱신을 합친 커밋이 0.7 ms다. 이 수치가 "재계산을 더 줄일 것인가"라는 질문의 답을 정한다 — [ADR-002의 `selectAtom` 항목](ADR.md#adr-002-atomfamily로-좌석-구독-격리--beforeafter-측정)을 참조.
 
-2. Day 3 초기 마운트 시간을 측정하지 않고 공란으로 둔다.
+### 같은 조건이 아닌 부분
 
-   조건이 다른 값을 before/after 비교처럼 보이게 하는 대신, 자동화된 클릭당 리렌더 횟수만으로 업데이트 성능 서사를 유지한다.
+페이지 하이드레이션 커밋 전체(96.6 ms → 218.1 ms)는 **동일 조건 비교가 아니다.** 현재 좌석 페이지에는 Day 3에 없던 `ZoomPanSvg`, 3초 스냅샷 폴링, `ConfirmBar`·`HoldTimer`, 문의 위젯이 함께 마운트된다. 좌석에 귀속되는 비교값은 좌석 컴포넌트 2,000개의 렌더 합계(43.4 ms → 142.5 ms)이며, 이 값은 양쪽 모두 "좌석 하나당 컴포넌트 하나" 구조가 같아 그대로 비교된다.
 
-어느 선택지를 택하든 초기 마운트 비교는 최적화를 증명하는 핵심 수치가 아니다. ADR-002의 입장은 `atomFamily`가 업데이트 시 리렌더 범위를 줄이지만 2,000개 SVG 노드의 초기 마운트 비용은 개선하지 않는다는 것이다. 초기 마운트 시간은 개선을 주장하기 위한 값이 아니라, 개선되지 않은 비용을 정직하게 드러내기 위한 값이다.
+`--profile` 빌드는 프로파일러 타이머가 켜진 `react-dom`을 쓰므로 절대값이 일반 프로덕션 빌드보다 크다. 두 빌드에 같은 방향으로 걸리는 오버헤드라 비교에는 영향이 없지만, 이 표의 숫자를 "실사용자가 겪는 시간"으로 읽으면 안 된다.
 
-## 4. 측정값 기록 위치
+## 3. 재현 절차
 
-줄 번호는 문서를 고칠 때마다 어긋나므로 검색으로 찾는다. 초기 마운트 시간 자리는 세 곳 모두 `TBD` 문자열을 포함한다.
+### 3.1 두 빌드 준비
+
+현재 작업 트리에서 `next build`를 실행하면 실행 중인 dev 서버와 `.next`를 공유해 dev 서버가 깨진다. 양쪽 모두 **별도 worktree**에서 빌드한다.
 
 ```bash
-rg "TBD" README.md docs/PROGRESS.md
+# before — Day 3 순진한 구현 (좌석 페이지가 처음 붙은 시점)
+git worktree add ../ticket-mvp-day3 cad06ec
+cd ../ticket-mvp-day3
+npm ci                          # 이 커밋에는 pnpm-lock.yaml이 없고 package-lock.json이 있다
+npx next build --profile
+npx next start -p 3101
+
+# after — 현재 구현
+git worktree add ../ticket-mvp-perf HEAD
+cd ../ticket-mvp-perf
+corepack pnpm install --frozen-lockfile
+corepack pnpm exec next start -p 3100    # 그 전에 corepack pnpm exec next build --profile
 ```
 
-- `docs/PROGRESS.md` — Day 3 절 "before 측정"의 `초기 마운트 시간` 항목
-- `docs/PROGRESS.md` — Day 4 절 "after 측정"의 `초기 마운트 시간` 항목
-- `README.md` — "성능 before / after" 표의 `초기 마운트 시간` 행
-- `docs/ADR.md` — ADR-004의 “Upstash 콘솔 실측은 아직 못 했다” 문단에 6절 결과를 기록
+두 worktree에는 `.env.local`이 복사되지 않으므로 Upstash 토큰 없이 **인메모리 Store**로 뜬다. 네트워크 왕복이 측정에서 빠지고, 운영 Redis에 측정용 hold가 남지 않는다.
 
-클릭당 리렌더 수와 파생 atom 재계산 수는 자동 계측값으로 이미 채워져 있으므로 수동 측정의 갱신 대상이 아니다. `docs/ADR.md`에는 플레이스홀더가 없고 위 문장이 그 자리를 대신한다.
+`next start`를 백그라운드로 띄울 때 출력 파이프(`| tail` 등)를 물리면 기동 직후 `SyntaxError: Unexpected end of JSON input`으로 죽는다. 파일로 리다이렉트한다.
+
+### 3.2 측정 실행
+
+```bash
+node scripts/perf/measure-initial-mount.mjs \
+  --url http://localhost:3101/sessions/session-01/seats \
+  --runs 5 --label before --out docs/assets/perf/initial-mount-before.json
+
+node scripts/perf/measure-initial-mount.mjs \
+  --url http://localhost:3100/sessions/session-01/seats \
+  --runs 5 --label after --out docs/assets/perf/initial-mount-after.json
+```
+
+`session-01`은 `src/lib/mock-data.ts`의 시드 회차다. 첫 회차는 서버 캐시와 JIT가 식은 상태라 워밍업으로 버리고, 나머지 5회의 중앙값을 쓴다. Playwright는 이 저장소의 의존성이 아니므로 전역 설치본을 쓰거나 `PLAYWRIGHT_PATH`로 경로를 넘긴다.
+
+측정이 끝나면 worktree를 정리한다.
+
+```bash
+git worktree remove ../ticket-mvp-day3
+git worktree remove ../ticket-mvp-perf
+```
+
+## 4. 측정 방법 상세
+
+[`scripts/perf/measure-initial-mount.mjs`](../scripts/perf/measure-initial-mount.mjs)가 하는 일은 세 가지다.
+
+1. **React 커밋 시간 수집.** 페이지의 어떤 스크립트보다 먼저 `__REACT_DEVTOOLS_GLOBAL_HOOK__`의 최소 구현을 주입한다. React는 이 훅이 있으면 커밋마다 `onCommitFiberRoot`를 호출하고, 프로파일러 타이머가 켜진 빌드에서는 루트 fiber의 `actualDuration`에 그 커밋에서 실제로 렌더된 시간이 누적돼 있다. React DevTools Profiler가 커밋 막대에 표시하는 값과 같은 출처이므로, 확장을 설치하고 손으로 Record를 누르는 절차를 스크립트로 대체할 수 있다.
+2. **좌석에 귀속되는 몫 분리.** 커밋 시점의 fiber 트리를 훑어 컴포넌트 타입별로 `actualDuration`을 합친다. 프로덕션 번들은 함수 이름이 minify되므로 이름이 아니라 타입 동일성으로 묶고, **인스턴스가 가장 많은 타입(2,000개)** 을 좌석 컴포넌트로 본다. before/after 모두 좌석 하나당 컴포넌트 하나라 같은 기준이 적용된다.
+3. **클릭 커밋 측정.** 마운트가 끝난 뒤 화면에 실제로 보이는 좌석 하나를 클릭하고, 그 직후 커밋의 루트 `actualDuration`을 읽는다. 현재 구현은 `ZoomPanSvg`가 확대된 상태로 시작해 좌석 대부분이 뷰포트 밖에 있으므로, `elementFromPoint`로 클릭이 실제로 좌석에 닿는지 확인한 뒤 클릭한다.
+
+클릭 커밋에서는 타입별 합계를 쓰지 않고 루트 값만 읽는다. 직전 커밋에서 bailout된 fiber는 이전 커밋의 `actualDuration`을 그대로 들고 있어 타입별 합계가 오염되기 때문이다. 루트 값은 이번 커밋에 실제로 렌더된 작업만 누적한다.
 
 ## 5. 자동 측정 재현
-
-저장소 루트에서 다음 명령을 실행한다.
 
 ```bash
 pnpm test src/components/seat/__tests__
 ```
 
-이 명령은 before와 현재 구현의 계측 테스트를 함께 실행한다. 통과 결과는 추정치가 아니라 각 테스트가 직접 수집한 렌더·atom read 계측값을 검증한 결과다.
+before와 현재 구현의 계측 테스트를 함께 실행한다. 통과 결과는 추정치가 아니라 각 테스트가 직접 수집한 렌더·atom read 계측값을 검증한 결과다. jsdom 부하를 줄이기 위해 200석으로 실행하며 3초 폴링은 제외한다.
 
-## 6. 폴링 1회당 Upstash 커맨드 수
+## 6. 폴링 1회당 Upstash 커맨드 수 (미측정)
+
+ADR-004는 코드 경로를 세어 스냅샷 폴링 1회를 2커맨드로 계산했다. 이 값이 Upstash 콘솔의 실제 과금 단위와 일치하는지는 **아직 확인하지 못했다.** 남은 항목은 이것 하나다.
 
 ### 확인 대상
 
@@ -83,7 +119,7 @@ pnpm test src/components/seat/__tests__
 
 따라서 콘솔에서 확인할 것은 두 가지다.
 
-- 만료 좌석이 없는 평상시 스냅샷 경로가 ADR-004에서 코드로 센 것처럼 실제 2커맨드로 집계되는가
+- 만료 좌석이 없는 평상시 스냅샷 경로가 실제로 2커맨드로 집계되는가
 - `EVAL` 1회가 콘솔에서 1커맨드로 집계되는가, 아니면 스크립트 내부의 `redis.call`까지 각각 집계되는가. cleanup 스크립트는 같은 파일 147~167줄에서 `HGET`·`HDEL`·`INCR`·`GET`을 호출한다.
 
 ### 사전 조건과 트래픽 격리
@@ -125,6 +161,13 @@ pnpm test src/components/seat/__tests__
 
 ### 결과 기록
 
-실측 결과는 `docs/ADR.md` ADR-004 51줄의 “Upstash 콘솔 실측은 아직 못 했다” 문단에 기록한다. 실측이 코드로 센 값과 다르면 원래 추정이 틀렸다는 이력을 지우지 않고 두 결과를 함께 남긴다. ADR은 최종 결과만 남기는 문서가 아니라 결정과 근거의 이력이다.
+실측 결과는 `docs/ADR.md` ADR-004의 “Upstash 콘솔 실측은 아직 못 했다” 문단에 기록한다. 실측이 코드로 센 값과 다르면 원래 추정이 틀렸다는 이력을 지우지 않고 두 결과를 함께 남긴다. ADR은 최종 결과만 남기는 문서가 아니라 결정과 근거의 이력이다. 폴링 1회당 커맨드 수가 바뀌면 ADR-004의 Free 한도 비율 표도 함께 갱신한다.
 
-폴링 1회당 커맨드 수가 바뀌면 ADR-004 36~39줄의 Free 한도 비율 표도 함께 갱신한다. 현재 phase에서는 실측값이 없으므로 ADR을 수정하지 않는다. 값 반영은 `phases/10-release/step2.md`의 작업 범위다.
+## 7. 값 기록 위치
+
+줄 번호는 문서를 고칠 때마다 어긋나므로 검색으로 찾는다.
+
+- 이 문서 2절 — 실측 결과 표와 해석 (원본 JSON은 `docs/assets/perf/`)
+- `README.md` — "성능 before / after" 요약 표
+- `docs/PROGRESS.md` — Day 3 "before 측정", Day 4 "after 측정"
+- `docs/ADR.md` — ADR-002(좌석 구독 격리의 트레이드오프), ADR-004(Upstash 커맨드 수)

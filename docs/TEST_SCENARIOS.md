@@ -100,7 +100,7 @@ PowerShell의 `curl`은 `Invoke-WebRequest` 별칭이라 `-u`, `-b`, `-c`가 통
 | G5 | 시크릿 창에서 `/admin` 차단 | 프로덕션 | 2분 |
 | H1 | 재배포 후 영속성 | 프로덕션 | 10분 |
 | H2 | Upstash 커맨드 사용량 | Upstash 콘솔 | 10분 |
-| H3 | 초기 마운트 시간 측정 | 로컬 · Profiler | 20분 |
+| H3 | 초기 마운트 시간 측정 | 로컬 · 스크립트 | 완료 |
 
 ---
 
@@ -661,11 +661,11 @@ curl.exe -s "$BASE/" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u \
 
 ### H3. 초기 마운트 시간 측정
 
-**상태**: 미측정. README와 `docs/PROGRESS.md` 세 곳이 `TBD`로 비어 있다
+**상태**: 2026-09-13 측정 완료. 값은 `docs/PERF_MEASUREMENT.md` 2절과 README 성능 표에 있다
 
-절차 전문은 `docs/PERF_MEASUREMENT.md` 2·3절에 있다. 요약하면 React DevTools Profiler로 첫 커밋의 `duration`을 3회 측정해 중앙값을 쓰고, 폴링으로 생기는 3초 간격 커밋은 제외한다.
+수동 Profiler 절차를 `scripts/perf/measure-initial-mount.mjs`로 대체했다. before/after 두 커밋을 각각 별도 worktree에 `next build --profile`로 빌드해 띄우고, 스크립트가 React 커밋의 `actualDuration`을 5회 수집해 중앙값을 낸다. 재현 절차는 `docs/PERF_MEASUREMENT.md` 3절.
 
-**주의**: 이 값은 개선을 주장하는 수치가 아니다. `atomFamily`는 업데이트 시 리렌더 범위를 줄이지만 2,000개 SVG 노드의 초기 마운트 비용은 줄이지 않는다. 개선되지 **않은** 비용을 정직하게 드러내는 값이다 (ADR-002).
+**주의**: 이 값은 개선을 주장하는 수치가 아니다. `atomFamily`는 업데이트 시 리렌더 범위를 줄이지만 2,000개 SVG 노드의 초기 마운트 비용은 줄이지 않는다. 실측에서는 좌석마다 구독을 만드는 비용 때문에 오히려 3.3배 느려졌다. 개선되지 **않은** 비용을 정직하게 드러내는 값이다 (ADR-002).
 
 ---
 
