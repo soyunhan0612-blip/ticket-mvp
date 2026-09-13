@@ -32,7 +32,7 @@
 | 서버 상태 | TanStack Query | 3초 스냅샷 폴링, 낙관적 hold, 409 시 선택 묶음 전체 롤백 |
 | 클라이언트 상태 | Jotai `atomFamily` | 2,000개 좌석의 구독 격리 |
 | 저장소 | Upstash Redis · Lua | 회차별 sparse Hash, 다중 좌석 원자 전환. 토큰이 없으면 인메모리 Store로 교체 |
-| 검증 | Vitest · Zod | 93개 파일 · 847개 테스트를 CI에서 lint·build와 함께 실행, 외부 입력은 route 입구에서 파싱 |
+| 검증 | Vitest · Zod | 93개 파일 · 864개 테스트를 CI에서 lint·build와 함께 실행, 외부 입력은 route 입구에서 파싱 |
 | AI | Claude API | 셀러 공연 설명 스트리밍, Admin 운영 요약·조회 전용 Agent, 문의 챗봇 (키가 없으면 고정 문구로 폴백) |
 
 화면은 Vodafone Design System을 이식하되, 좌석맵·Admin 같은 도구 화면은 dark 밴드에 두어 "도구처럼 보인다"는 원칙과 충돌을 풀었습니다. 결정 근거는 [ADR](docs/ADR.md)과 [UI Guide](docs/UI_GUIDE.md)에 있습니다.

@@ -25,7 +25,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm dev` | 개발 서버 |
 | `pnpm build` | 프로덕션 빌드 (배포 직전 수동) |
 | `pnpm lint` | ESLint |
-| `pnpm test` | Vitest 전체 테스트 (93개 파일 · 847개 테스트) |
+| `pnpm test` | Vitest 전체 테스트 (93개 파일 · 864개 테스트) |
 | `pnpm test:watch` | Vitest 워치 모드 |
 | `pnpm test:hooks` | 훅 스크립트 테스트 |
 | `python -m pytest scripts/test_execute.py` | 하네스 테스트 |
