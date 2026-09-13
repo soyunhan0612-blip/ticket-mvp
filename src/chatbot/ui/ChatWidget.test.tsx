@@ -14,8 +14,11 @@ const chatState = vi.hoisted(() => ({
   turns: [] as ChatTurnView[],
   isStreaming: false,
   awaitingOperator: false,
+  operatorMode: false,
+  isRequestingOperator: false,
   error: null as Error | null,
   send: vi.fn(async (_message: string) => true),
+  requestOperator: vi.fn(async () => true),
   reset: vi.fn(),
 }));
 
@@ -33,9 +36,13 @@ describe("ChatWidget", () => {
     chatState.turns = [];
     chatState.isStreaming = false;
     chatState.awaitingOperator = false;
+    chatState.operatorMode = false;
+    chatState.isRequestingOperator = false;
     chatState.error = null;
     chatState.send.mockReset();
     chatState.send.mockResolvedValue(true);
+    chatState.requestOperator.mockReset();
+    chatState.requestOperator.mockResolvedValue(true);
     chatState.reset.mockReset();
   });
 
@@ -141,5 +148,114 @@ describe("ChatWidget", () => {
     const input = screen.getByRole("textbox", { name: "문의 내용" });
     expect(input).toHaveAttribute("maxLength", String(CHAT_MESSAGE_LIMIT));
     expect(screen.getByText(`${CHAT_MESSAGE_LIMIT}자 남음`)).toBeInTheDocument();
+  });
+
+  it("런처 아이콘을 장식으로 두고 텍스트 라벨을 남긴다", () => {
+    const { container } = render(<ChatWidget />);
+
+    const icon = container.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getByRole("button", { name: "문의하기" }),
+    ).toHaveTextContent("문의하기");
+  });
+
+  it("상담원 연결을 쓸 수 없으면 연결 버튼을 내보이지 않는다", async () => {
+    render(<ChatWidget />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(
+      screen.queryByRole("button", { name: "상담원에게 직접 문의하기" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("상담원 연결 버튼을 누르면 핸드오프를 요청한다", async () => {
+    render(<ChatWidget operatorHandoffEnabled />);
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "상담원에게 직접 문의하기" }),
+    );
+
+    expect(chatState.requestOperator).toHaveBeenCalledTimes(1);
+  });
+
+  it("연결 중에는 상담원 버튼을 잠그고 진행 상태를 알린다", async () => {
+    chatState.isRequestingOperator = true;
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByRole("button", { name: "연결 중..." })).toBeDisabled();
+  });
+
+  it("이미 연결된 뒤에는 상담원 버튼을 감추고 입력 라벨을 바꾼다", async () => {
+    chatState.operatorMode = true;
+    chatState.awaitingOperator = true;
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(
+      screen.queryByRole("button", { name: "상담원에게 직접 문의하기" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "상담원에게 보낼 메시지" }),
+    ).toBeInTheDocument();
+  });
+
+  it("상담원이 답한 뒤에도 사람과 연결돼 있다고 알린다", async () => {
+    chatState.operatorMode = true;
+    chatState.awaitingOperator = false;
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("상담원과 연결되어 있습니다");
+    expect(status).not.toHaveTextContent("기다리고 있습니다");
+  });
+
+  it("상담원 모드에서는 전송 중 문구를 답변 대기로 쓰지 않는다", async () => {
+    chatState.operatorMode = true;
+    chatState.isStreaming = true;
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(
+      screen.getByRole("button", { name: "보내는 중..." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "답변 받는 중..." }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("상담원 연결이 막힌 응답을 사람이 읽을 문구로 옮긴다", async () => {
+    chatState.error = Object.assign(new Error("handoff disabled"), {
+      status: 503,
+    });
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "지금은 상담원 연결을 이용할 수 없습니다.",
+    );
+  });
+
+  it("상담원에게 전달하지 못한 응답을 사람이 읽을 문구로 옮긴다", async () => {
+    chatState.error = Object.assign(new Error("handoff unavailable"), {
+      status: 502,
+    });
+    render(<ChatWidget operatorHandoffEnabled />);
+
+    await userEvent.click(screen.getByRole("button", { name: "문의하기" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "상담원에게 전달하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    );
   });
 });

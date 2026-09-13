@@ -66,13 +66,24 @@ POST /api/reservations → ReservationStore.create → SeatStore.confirmSeats (�
 ```
 [관람객 ChatWidget]
    ↓ POST /api/chat → createChatStream(Opus) → text/plain 스트림
-   ↓ 답변 불가: escalate_to_human
+   ↓ 진입점 2개: 모델이 답변 불가로 판단한 escalate_to_human,
+   ↓              손님이 누른 '상담원에게 직접 문의하기' → POST /api/chat/handoff
 Slack chat.postMessage → ConversationStore.startEscalation
    ↓ 상담원이 원문 스레드에 답장
 POST /api/chat/slack/events → 서명 검증 → ConversationStore.appendOperatorReply
-   ↓ GET /api/chat/[conversationId] 3초 폴링 (awaitingOperator일 때만)
-ChatWidget ← operator/notice 턴 + awaitingOperator
+   ↓ GET /api/chat/[conversationId] 3초 폴링 (awaitingOperator 또는 operatorMode)
+ChatWidget ← operator/notice 턴 + awaitingOperator + operatorMode
+   ↓ 연결된 뒤의 손님 메시지
+POST /api/chat → relayGuestMessage → Slack 스레드 답글 (모델 미호출)
 ```
+
+상담원 연결의 두 진입점은 `ConversationStore.startEscalation` 하나로 수렴한다. 중복은
+저장소가 `ESCALATION_IN_PROGRESS`로 막고, 시간당 총량은 `src/lib/chat-escalation-limit.ts`의
+공유 버킷(userId당 3회)이 막는다. 라우팅 판정은 `isAwaitingOperator`가 아니라
+`isOperatorMode`(= `escalation !== null`)다 — `answeredAt`은 첫 답장에서만 세팅되므로,
+대기 여부로 라우팅하면 상담원이 한 번 답한 순간 손님이 말없이 모델에게 되돌아간다.
+Slack 자격 증명은 서버에만 있으므로 `layout.tsx`(RSC)가 `hasSlackConfig()`를 읽어
+`ChatWidget`에 boolean prop으로 내린다.
 
 도메인 소유 관계는 다음과 같다. `Session`은 `Show`에 속하고, 좌석은 **저장되지 않는다** — `Show.presetId`에서
 `generateSeatsForPreset`으로 매번 파생시킨다. 그래서 `Seat` 타입에 상태 필드가 없고, 점유 상태는 `SeatStore`가 따로 들고 있다.
@@ -151,6 +162,9 @@ interface ConversationStore {   // 관람객 챗봇 (ADR-008). 기존 셋과 같
   create(userId): Promise<Conversation>
   get(conversationId, userId): Promise<Conversation>                   // 없으면 NOT_FOUND, 남의 것이면 FORBIDDEN throw
   appendTurns(conversationId, userId, turns): Promise<Conversation>    // 턴 id·createdAt은 store가 매긴다. content는 상한에서 자르고, 턴 수 초과 시 오래된 것부터 버린다. TTL은 마지막 append부터 다시 센다
+  startEscalation(conversationId, userId, slackThreadTs, now): Promise<Conversation>   // 대기 중 에스컬레이션이 이미 있으면 거부
+  markAutoReplySent(conversationId, userId, now): Promise<boolean>                     // 이미 보냈으면 false
+  appendOperatorReply(slackThreadTs, content, eventId, now): Promise<Conversation | null>  // userId를 받지 않는 유일한 쓰기. 열쇠는 스레드 ts이고 게이트는 슬랙 서명뿐이다 (ADR-008)
 }
 ```
 
@@ -223,7 +237,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 
 새 AI 라우트를 만들 때 기본은 게이트 뒤다 — 운영 데이터를 다루면서 공개 배치를 복제하면 매출·재고가 그대로 공개된다. 관람객 챗봇만 예외인데, 익명 손님이 쓰는 창구라 게이트 뒤로 갈 수 없기 때문이다. 대신 내보내는 범위를 **좌석 화면이 이미 공개하는 것**(공연·회차·좌석 현황 집계 — 매출·판매율은 제외)으로 묶었다 (ADR-008).
 
-공통으로 거는 최소 방어는 IP당 rate limit이다. 값은 용도에 따라 다르다 — 버튼 한 번에 질문 하나인 세 라우트는 **분당 3회**, 턴이 빠르게 쌓이는 `/api/chat`은 **분당 10회**, 3초 폴링(phase 16에서 켠다)을 전제로 잡은 `/api/chat/[conversationId]`는 **분당 60회**다. `/api/chat`의 POST만 IP와 `userId` 두 축에 같은 값을 건다 — IP만 걸면 같은 사람이 IP를 바꿔가며 새 대화를 계속 만들 수 있다. `/api/chat/slack/events`에는 걸지 않는다 — 슬랙의 출발 IP가 고정이 아니고 서명이 이미 게이트다.
+공통으로 거는 최소 방어는 IP당 rate limit이다. 값은 용도에 따라 다르다 — 버튼 한 번에 질문 하나인 세 라우트는 **분당 3회**, 턴이 빠르게 쌓이는 `/api/chat`은 **분당 10회**, 대기 중 3초 폴링을 전제로 잡은 `/api/chat/[conversationId]`는 **분당 60회**다. `/api/chat`의 POST만 IP와 `userId` 두 축에 같은 값을 건다 — IP만 걸면 같은 사람이 IP를 바꿔가며 새 대화를 계속 만들 수 있다. `/api/chat/slack/events`에는 걸지 않는다 — 슬랙의 출발 IP가 고정이 아니고 서명이 이미 게이트다.
 
 `max_tokens` 상한은 설명·요약이 600(`AI_MAX_TOKENS`), Tool 루프를 도는 `/api/admin/agent`와 `/api/chat`이 2000(각각 `AGENT_MAX_TOKENS`, `CHAT_MAX_TOKENS`)이다. 모델은 **Haiku 4.5**가 기본이고, 무엇을 조회할지 스스로 골라야 하는 두 곳 — `/api/admin/agent`와 `/api/chat` — 만 **Opus 5**다 (ADR-007, ADR-008). `/api/chat`은 무인증 공개 라우트에 Opus 5를 거는 의도된 예외이고, 레이트리밋이 유일한 비용 상한이다. 모델 ID는 `CHAT_MODEL` 상수 하나에 있어 한 줄로 내릴 수 있다. 사용자 입력은 `===USER_INPUT_START===`/`===USER_INPUT_END===`로 감싸 프롬프트 인젝션을 완화한다. 설명은 plain text + `whitespace-pre-wrap` 렌더 (`dangerouslySetInnerHTML` 금지 — 저장형 XSS 방어).
 

@@ -44,19 +44,52 @@ function getErrorMessage(error: Error): string {
       return "이 대화를 이어갈 수 없습니다. 새 대화를 시작해 주세요.";
     case 429:
       return "문의가 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+    case 502:
+      return "상담원에게 전달하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    case 503:
+      return "지금은 상담원 연결을 이용할 수 없습니다.";
     default:
       return "답변을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
 }
 
-function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
+// DS는 아이콘 세트를 주지 않는다(UI_GUIDE). 인라인 SVG를 쓰되 둥근 배경으로
+// 감싸지 않고 텍스트 라벨과 함께만 쓴다.
+function ChatBubbleIcon(): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      viewBox="0 0 24 24"
+    >
+      <path d="M20 4.75H4a1.25 1.25 0 0 0-1.25 1.25v9.5A1.25 1.25 0 0 0 4 16.75h3.25v3.5l4.2-3.5H20a1.25 1.25 0 0 0 1.25-1.25V6A1.25 1.25 0 0 0 20 4.75Z" />
+    </svg>
+  );
+}
+
+function ChatPanel({
+  onClose,
+  operatorHandoffEnabled,
+}: {
+  onClose: () => void;
+  operatorHandoffEnabled: boolean;
+}): JSX.Element {
   const [message, setMessage] = useState("");
   const {
     turns,
     isStreaming,
     awaitingOperator,
+    operatorMode,
+    isRequestingOperator,
     error,
     send,
+    requestOperator,
     reset,
   } = useChat({ messageLimit: CHAT_MESSAGE_LIMIT });
   const remainingCharacters = CHAT_MESSAGE_LIMIT - message.length;
@@ -118,12 +151,14 @@ function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
         </ol>
       )}
 
-      {awaitingOperator ? (
+      {awaitingOperator || operatorMode ? (
         <p
           className="rounded-card bg-canvas-soft p-md text-body-sm text-ink"
           role="status"
         >
-          상담원 답변을 기다리고 있습니다.
+          {awaitingOperator
+            ? "상담원 답변을 기다리고 있습니다."
+            : "상담원과 연결되어 있습니다. 보내는 메시지는 상담원에게 전달됩니다."}
         </p>
       ) : null}
 
@@ -134,6 +169,20 @@ function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
         >
           {getErrorMessage(error)}
         </p>
+      ) : null}
+
+      {operatorHandoffEnabled && !operatorMode ? (
+        <Button
+          className="w-full"
+          disabled={isRequestingOperator || isStreaming}
+          onClick={() => {
+            void requestOperator();
+          }}
+          size="sm"
+          variant="outline-dark"
+        >
+          {isRequestingOperator ? "연결 중..." : "상담원에게 직접 문의하기"}
+        </Button>
       ) : null}
 
       <form
@@ -155,7 +204,7 @@ function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
           autoComplete="off"
           hint={`${remainingCharacters}자 남음`}
           id="chat-message"
-          label="문의 내용"
+          label={operatorMode ? "상담원에게 보낼 메시지" : "문의 내용"}
           maxLength={CHAT_MESSAGE_LIMIT}
           onChange={(event) => setMessage(event.target.value)}
           value={message}
@@ -166,21 +215,38 @@ function ChatPanel({ onClose }: { onClose: () => void }): JSX.Element {
           size="sm"
           type="submit"
         >
-          {isStreaming ? "답변 받는 중..." : "보내기"}
+          {isStreaming
+            ? operatorMode
+              ? "보내는 중..."
+              : "답변 받는 중..."
+            : "보내기"}
         </Button>
       </form>
     </Card>
   );
 }
 
-export function ChatWidget(): JSX.Element | null {
+export function ChatWidget({
+  operatorHandoffEnabled = false,
+}: {
+  /**
+   * Slack 자격 증명은 서버에만 있다. RSC가 `hasSlackConfig()`를 읽어 내려주고,
+   * 위젯은 늘 503을 받는 죽은 버튼을 그리지 않는다.
+   */
+  operatorHandoffEnabled?: boolean;
+} = {}): JSX.Element | null {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
   if (isOperatorPath(pathname)) return null;
 
   if (isOpen) {
-    return <ChatPanel onClose={() => setIsOpen(false)} />;
+    return (
+      <ChatPanel
+        onClose={() => setIsOpen(false)}
+        operatorHandoffEnabled={operatorHandoffEnabled}
+      />
+    );
   }
 
   return (
@@ -190,7 +256,10 @@ export function ChatWidget(): JSX.Element | null {
       size="sm"
       variant="outline-dark"
     >
-      문의하기
+      <span className="inline-flex items-center gap-xs">
+        <ChatBubbleIcon />
+        문의하기
+      </span>
     </Button>
   );
 }

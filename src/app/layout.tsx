@@ -6,6 +6,7 @@ import { ChatWidget } from "@/chatbot/ui/ChatWidget";
 import { NavBar } from "@/components/navigation/NavBar";
 import { Providers } from "@/components/providers";
 import { isOperatorSession } from "@/lib/auth-session";
+import { hasSlackConfig } from "@/lib/slack-client";
 
 import "./globals.css";
 
@@ -62,7 +63,7 @@ export default async function RootLayout({
         <div className="flex flex-1 flex-col">
           <Providers>
             {children}
-            <ChatWidget />
+            <ChatWidget operatorHandoffEnabled={hasSlackConfig()} />
           </Providers>
         </div>
 

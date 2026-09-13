@@ -11,6 +11,7 @@ export interface ChatTurnView {
 
 export interface UseChatOptions {
   sendPath?: string;
+  handoffPath?: string;
   conversationPath?: (conversationId: string) => string;
   messageLimit: number;
 }
@@ -19,12 +20,19 @@ export interface UseChatResult {
   turns: ChatTurnView[];
   isStreaming: boolean;
   awaitingOperator: boolean;
+  /**
+   * 상담원과 연결된 뒤로는 답변을 받은 뒤에도 참으로 남는다. 보낸 메시지가
+   * 사람에게 가는지 모델에게 가는지를 가르는 것은 이 값이다.
+   */
+  operatorMode: boolean;
+  isRequestingOperator: boolean;
   error: Error | null;
   /**
    * 손님 턴이 화면에 올라가기 전에 실패하면 `false`를 돌려준다. 친 문장이 어디에도
    * 남지 않은 상태이므로, 호출자는 이 값을 보고 입력을 되돌려야 한다.
    */
   send: (message: string) => Promise<boolean>;
+  requestOperator: () => Promise<boolean>;
   reset: () => void;
 }
 
@@ -35,12 +43,16 @@ interface ConversationResponse {
     updatedAt: number;
   };
   awaitingOperator: boolean;
+  operatorMode: boolean;
 }
 
 export const CHAT_CONVERSATION_STORAGE_KEY = "chat-conversation-id";
 export const CHAT_REFETCH_INTERVAL = 3_000;
+export const OPERATOR_CHAT_ROUTE_HEADER = "X-Chat-Route";
+export const OPERATOR_CHAT_ROUTE = "operator";
 
 const DEFAULT_SEND_PATH = "/api/chat";
+const DEFAULT_HANDOFF_PATH = "/api/chat/handoff";
 const defaultConversationPath = (conversationId: string): string =>
   `/api/chat/${conversationId}`;
 
@@ -122,19 +134,40 @@ export function useChat(options: UseChatOptions): UseChatResult {
   const [turns, setTurns] = useState<ChatTurnView[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [awaitingOperator, setAwaitingOperator] = useState(false);
+  const [operatorMode, setOperatorMode] = useState(false);
+  const [isRequestingOperator, setIsRequestingOperator] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const sendPathRef = useRef(options.sendPath ?? DEFAULT_SEND_PATH);
+  const handoffPathRef = useRef(options.handoffPath ?? DEFAULT_HANDOFF_PATH);
   const conversationPathRef = useRef(
     options.conversationPath ?? defaultConversationPath,
   );
   const messageLimitRef = useRef(options.messageLimit);
 
   sendPathRef.current = options.sendPath ?? DEFAULT_SEND_PATH;
+  handoffPathRef.current = options.handoffPath ?? DEFAULT_HANDOFF_PATH;
   conversationPathRef.current =
     options.conversationPath ?? defaultConversationPath;
   messageLimitRef.current = options.messageLimit;
+
+  // 서버 스냅샷이 단일 출처다. 판정을 클라이언트에서 다시 계산하지 않는다.
+  const applySnapshot = useCallback((snapshot: ConversationResponse): void => {
+    setTurns(snapshot.conversation.turns);
+    setAwaitingOperator(snapshot.awaitingOperator);
+    setOperatorMode(snapshot.operatorMode);
+    setError(null);
+  }, []);
+
+  const discardConversation = useCallback((): void => {
+    conversationIdRef.current = null;
+    removeStoredConversationId();
+    setTurns([]);
+    setAwaitingOperator(false);
+    setOperatorMode(false);
+    setError(null);
+  }, []);
 
   useEffect(() => {
     const storedConversationId = readStoredConversationId();
@@ -151,19 +184,13 @@ export function useChat(options: UseChatOptions): UseChatResult {
       )
         .then((snapshot) => {
           if (restoreController?.signal.aborted) return;
-          setTurns(snapshot.conversation.turns);
-          setAwaitingOperator(snapshot.awaitingOperator);
-          setError(null);
+          applySnapshot(snapshot);
         })
         .catch((caught: unknown) => {
           if (restoreController?.signal.aborted) return;
 
           if (isMissingConversation(caught)) {
-            conversationIdRef.current = null;
-            removeStoredConversationId();
-            setTurns([]);
-            setAwaitingOperator(false);
-            setError(null);
+            discardConversation();
             return;
           }
 
@@ -182,10 +209,11 @@ export function useChat(options: UseChatOptions): UseChatResult {
       restoreController?.abort();
       abortRef.current?.abort();
     };
-  }, []);
+  }, [applySnapshot, discardConversation]);
 
   useEffect(() => {
-    if (!awaitingOperator) return;
+    // 상담원이 답한 뒤에도 대화가 이어지므로 operatorMode 동안 폴링을 유지한다.
+    if (!awaitingOperator && !operatorMode) return;
 
     const conversationId = conversationIdRef.current;
     if (!conversationId) return;
@@ -207,18 +235,12 @@ export function useChat(options: UseChatOptions): UseChatResult {
         );
         if (controller.signal.aborted) return;
 
-        setTurns(snapshot.conversation.turns);
-        setAwaitingOperator(snapshot.awaitingOperator);
-        setError(null);
+        applySnapshot(snapshot);
       } catch (caught: unknown) {
         if (controller.signal.aborted) return;
 
         if (isMissingConversation(caught)) {
-          conversationIdRef.current = null;
-          removeStoredConversationId();
-          setTurns([]);
-          setAwaitingOperator(false);
-          setError(null);
+          discardConversation();
           return;
         }
 
@@ -241,7 +263,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
       window.clearInterval(intervalId);
       pollingController?.abort();
     };
-  }, [awaitingOperator]);
+  }, [applySnapshot, awaitingOperator, discardConversation, operatorMode]);
 
   const send = useCallback(async (message: string): Promise<boolean> => {
     const normalizedMessage = message.trim().slice(0, messageLimitRef.current);
@@ -277,7 +299,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
       });
 
       if (abortController.signal.aborted) return true;
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         // POST 실패 본문은 text/plain이다. JSON으로 파싱하지 않고 상태만 보존한다.
         throw new ChatHttpError(response.status);
       }
@@ -291,6 +313,28 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
       conversationIdRef.current = responseConversationId;
       storeConversationId(responseConversationId);
+
+      // 상담원에게 전달된 메시지에는 스트림도, 모델 답변도 없다. 빈 assistant
+      // 턴을 만들면 화면에 빈 말풍선이 남는다. 본문 검사보다 먼저 갈라진다.
+      if (
+        response.headers.get(OPERATOR_CHAT_ROUTE_HEADER) === OPERATOR_CHAT_ROUTE
+      ) {
+        // 서버가 이미 손님 턴을 저장했다. 실패해도 입력을 되돌리지 않는다.
+        userTurnVisible = true;
+        const relayed = await fetchConversation(
+          conversationPathRef.current(responseConversationId),
+          abortController.signal,
+        );
+        if (abortController.signal.aborted) return true;
+
+        applySnapshot(relayed);
+        return true;
+      }
+
+      if (!response.body) {
+        throw new ChatHttpError(response.status);
+      }
+
       setTurns((current) => [
         ...current,
         userTurn,
@@ -338,8 +382,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
       );
       if (abortController.signal.aborted) return true;
 
-      setTurns(snapshot.conversation.turns);
-      setAwaitingOperator(snapshot.awaitingOperator);
+      applySnapshot(snapshot);
       return true;
     } catch (caught) {
       if (abortController.signal.aborted) return true;
@@ -356,25 +399,67 @@ export function useChat(options: UseChatOptions): UseChatResult {
         setIsStreaming(false);
       }
     }
-  }, []);
+  }, [applySnapshot]);
+
+  const requestOperator = useCallback(async (): Promise<boolean> => {
+    abortRef.current?.abort();
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+    setIsRequestingOperator(true);
+    setError(null);
+
+    const conversationId = conversationIdRef.current;
+
+    try {
+      const response = await fetch(handoffPathRef.current, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(conversationId ? { conversationId } : {}),
+        signal: abortController.signal,
+      });
+
+      if (abortController.signal.aborted) return false;
+      if (!response.ok) throw await createGetError(response);
+
+      const snapshot = (await response.json()) as ConversationResponse;
+      if (abortController.signal.aborted) return false;
+
+      conversationIdRef.current = snapshot.conversation.id;
+      storeConversationId(snapshot.conversation.id);
+      applySnapshot(snapshot);
+      return true;
+    } catch (caught) {
+      if (abortController.signal.aborted) return false;
+
+      setError(
+        caught instanceof Error
+          ? caught
+          : new Error("Operator handoff failed"),
+      );
+      return false;
+    } finally {
+      if (abortRef.current === abortController) abortRef.current = null;
+      setIsRequestingOperator(false);
+    }
+  }, [applySnapshot]);
 
   const reset = useCallback((): void => {
     abortRef.current?.abort();
     abortRef.current = null;
-    conversationIdRef.current = null;
-    removeStoredConversationId();
-    setTurns([]);
+    discardConversation();
     setIsStreaming(false);
-    setAwaitingOperator(false);
-    setError(null);
-  }, []);
+    setIsRequestingOperator(false);
+  }, [discardConversation]);
 
   return {
     turns,
     isStreaming,
     awaitingOperator,
+    operatorMode,
+    isRequestingOperator,
     error,
     send,
+    requestOperator,
     reset,
   };
 }

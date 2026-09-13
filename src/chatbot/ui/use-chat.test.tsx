@@ -34,14 +34,28 @@ function createConversationResponse({
   id = "conversation-1",
   turns = [],
   awaitingOperator = false,
+  operatorMode = awaitingOperator,
 }: {
   id?: string;
   turns?: ChatTurnView[];
   awaitingOperator?: boolean;
+  operatorMode?: boolean;
 } = {}): Response {
   return Response.json({
     conversation: { id, turns, updatedAt: 1 },
     awaitingOperator,
+    operatorMode,
+  });
+}
+
+function createOperatorRelayResponse(
+  conversationId = "conversation-1",
+): Response {
+  return new Response(null, {
+    headers: {
+      "X-Conversation-Id": conversationId,
+      "X-Chat-Route": "operator",
+    },
   });
 }
 
@@ -341,5 +355,129 @@ describe("useChat", () => {
       await vi.advanceTimersByTimeAsync(6_000);
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("requestOperator가 핸드오프 경로에 붙고 응답 스냅샷으로 상태를 바꾼다", async () => {
+    const noticeTurns: ChatTurnView[] = [
+      { id: "notice-1", role: "notice", content: "연결했습니다", createdAt: 1 },
+    ];
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      createConversationResponse({
+        id: "conversation-9",
+        turns: noticeTurns,
+        awaitingOperator: true,
+      }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await expect(result.current.requestOperator()).resolves.toBe(true);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe("/api/chat/handoff");
+    expect(init?.method).toBe("POST");
+    expect(result.current.operatorMode).toBe(true);
+    expect(result.current.awaitingOperator).toBe(true);
+    expect(result.current.turns).toEqual(noticeTurns);
+    expect(result.current.error).toBeNull();
+    expect(sessionStorage.getItem(CHAT_CONVERSATION_STORAGE_KEY)).toBe(
+      "conversation-9",
+    );
+  });
+
+  it("핸드오프가 거절되면 상담원 모드로 넘어가지 않고 오류를 남긴다", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ error: "too many requests" }, { status: 429 }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await expect(result.current.requestOperator()).resolves.toBe(false);
+    });
+
+    expect(result.current.operatorMode).toBe(false);
+    expect(result.current.awaitingOperator).toBe(false);
+    expect(result.current.error).not.toBeNull();
+  });
+
+  it("상담원에게 릴레이된 응답에는 빈 assistant 턴을 만들지 않는다", async () => {
+    const relayedTurns: ChatTurnView[] = [
+      { id: "user-1", role: "user", content: "추가 질문", createdAt: 1 },
+    ];
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(createOperatorRelayResponse("conversation-9"))
+      .mockResolvedValueOnce(
+        createConversationResponse({
+          id: "conversation-9",
+          turns: relayedTurns,
+          awaitingOperator: true,
+        }),
+      );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await expect(result.current.send("추가 질문")).resolves.toBe(true);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.turns).toEqual(relayedTurns);
+    expect(
+      result.current.turns.some((turn) => turn.role === "assistant"),
+    ).toBe(false);
+    expect(result.current.operatorMode).toBe(true);
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it("상담원이 답한 뒤에도 operatorMode인 동안 폴링을 이어간다", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem(CHAT_CONVERSATION_STORAGE_KEY, "conversation-1");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      createConversationResponse({
+        awaitingOperator: false,
+        operatorMode: true,
+      }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.awaitingOperator).toBe(false);
+    expect(result.current.operatorMode).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("reset이 상담원 모드를 되돌린다", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      createConversationResponse({ awaitingOperator: true }),
+    );
+    const { result } = renderHook(() => useChat(OPTIONS));
+
+    await act(async () => {
+      await result.current.requestOperator();
+    });
+    expect(result.current.operatorMode).toBe(true);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.operatorMode).toBe(false);
+    expect(result.current.awaitingOperator).toBe(false);
+    expect(result.current.turns).toEqual([]);
+    expect(sessionStorage.getItem(CHAT_CONVERSATION_STORAGE_KEY)).toBeNull();
   });
 });

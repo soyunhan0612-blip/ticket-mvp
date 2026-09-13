@@ -11,10 +11,19 @@ import { getConversationStore } from "@/services";
 import { POST } from "./route";
 
 const createChatStreamMock = vi.hoisted(() => vi.fn());
+const postSlackMessageMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/chatbot/core/engine", () => ({
   createChatStream: createChatStreamMock,
 }));
+
+vi.mock("@/lib/slack-client", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/slack-client")>(
+    "@/lib/slack-client",
+  );
+
+  return { ...actual, postSlackMessage: postSlackMessageMock };
+});
 
 function makeRequest(
   body: unknown,
@@ -40,6 +49,7 @@ describe("POST /api/chat", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     createChatStreamMock.mockReset();
+    postSlackMessageMock.mockReset();
     if (originalApiKey === undefined) {
       delete process.env.ANTHROPIC_API_KEY;
     } else {
@@ -337,5 +347,114 @@ describe("POST /api/chat", () => {
     );
 
     await expect(response.text()).resolves.toBe("완성된 답변입니다");
+  });
+
+  it("relays a message to the operator thread instead of the model", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.SLACK_BOT_TOKEN = "xoxb-test";
+    process.env.SLACK_CHANNEL_ID = "C0TEST";
+    postSlackMessageMock.mockResolvedValue({ ts: "1760000000.000200" });
+    const store = getConversationStore();
+    const userId = `relay-user-${crypto.randomUUID()}`;
+    const conversation = await store.create(userId);
+    await store.startEscalation(
+      conversation.id,
+      userId,
+      "1760000000.000100",
+      Date.now(),
+    );
+
+    const response = await POST(
+      makeRequest(
+        { conversationId: conversation.id, message: "추가 질문입니다" },
+        `relay-${crypto.randomUUID()}`,
+        userId,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Chat-Route")).toBe("operator");
+    expect(response.headers.get("X-Conversation-Id")).toBe(conversation.id);
+    await expect(response.text()).resolves.toBe("");
+    expect(createChatStreamMock).not.toHaveBeenCalled();
+    expect(postSlackMessageMock).toHaveBeenCalledTimes(1);
+    expect(postSlackMessageMock.mock.calls[0][0].threadTs).toBe(
+      "1760000000.000100",
+    );
+    expect(postSlackMessageMock.mock.calls[0][0].text).toContain(
+      "추가 질문입니다",
+    );
+
+    const stored = await store.get(conversation.id, userId);
+    expect(stored.turns.at(-1)).toMatchObject({
+      role: "user",
+      content: "추가 질문입니다",
+    });
+  });
+
+  it("keeps relaying after the operator has answered once", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.SLACK_BOT_TOKEN = "xoxb-test";
+    process.env.SLACK_CHANNEL_ID = "C0TEST";
+    postSlackMessageMock.mockResolvedValue({ ts: "1760000000.000300" });
+    const store = getConversationStore();
+    const userId = `relay-answered-user-${crypto.randomUUID()}`;
+    const conversation = await store.create(userId);
+    const threadTs = "1760000001.000100";
+    await store.startEscalation(conversation.id, userId, threadTs, Date.now());
+    await store.appendOperatorReply(
+      threadTs,
+      "확인해 드리겠습니다",
+      `event-${crypto.randomUUID()}`,
+      Date.now(),
+    );
+
+    const answered = await store.get(conversation.id, userId);
+    expect(answered.escalation?.answeredAt).not.toBeNull();
+
+    const response = await POST(
+      makeRequest(
+        { conversationId: conversation.id, message: "한 가지 더 있습니다" },
+        `relay-answered-${crypto.randomUUID()}`,
+        userId,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Chat-Route")).toBe("operator");
+    expect(createChatStreamMock).not.toHaveBeenCalled();
+    expect(postSlackMessageMock.mock.calls[0][0].threadTs).toBe(threadTs);
+  });
+
+  it("keeps the guest turn out of the transcript when Slack refuses the relay", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.SLACK_BOT_TOKEN = "xoxb-test";
+    process.env.SLACK_CHANNEL_ID = "C0TEST";
+    postSlackMessageMock.mockRejectedValue(new Error("slack down"));
+    const store = getConversationStore();
+    const userId = `relay-failure-user-${crypto.randomUUID()}`;
+    const conversation = await store.create(userId);
+    await store.startEscalation(
+      conversation.id,
+      userId,
+      "1760000002.000100",
+      Date.now(),
+    );
+    const before = await store.get(conversation.id, userId);
+
+    const response = await POST(
+      makeRequest(
+        { conversationId: conversation.id, message: "전달되지 않을 문장" },
+        `relay-failure-${crypto.randomUUID()}`,
+        userId,
+      ),
+    );
+
+    expect(response.status).toBe(502);
+    expect(createChatStreamMock).not.toHaveBeenCalled();
+
+    const after = await store.get(conversation.id, userId);
+    expect(after.turns).toHaveLength(before.turns.length);
+    expect(JSON.stringify(after.turns)).not.toContain("전달되지 않을 문장");
   });
 });

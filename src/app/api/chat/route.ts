@@ -9,12 +9,15 @@ import {
   buildTicketChatFallback,
   buildTicketChatSystemPrompt,
 } from "@/chatbot/adapters/ticket/prompt";
+import { relayGuestMessage } from "@/chatbot/adapters/ticket/operator-handoff";
 import { createTicketChatTools } from "@/chatbot/adapters/ticket/tools";
 import { createChatStream } from "@/chatbot/core/engine";
+import { isOperatorMode } from "@/chatbot/core/escalation";
 import { createTextStream } from "@/chatbot/core/fallback";
 import { wrapUserInput } from "@/chatbot/core/sanitize";
 import type { ChatHistoryTurn } from "@/chatbot/core/types";
 import { getUserIdFromRequest } from "@/lib/cookie";
+import { checkEscalationRateLimit } from "@/lib/chat-escalation-limit";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { hasSlackConfig, postSlackMessage } from "@/lib/slack-client";
 import {
@@ -38,11 +41,6 @@ const ipRateLimiter = createRateLimiter({
 const userRateLimiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 10,
-});
-
-const escalationRateLimiter = createRateLimiter({
-  windowMs: 60 * 60_000,
-  maxRequests: 3,
 });
 
 const responseHeaders = {
@@ -170,11 +168,6 @@ export async function POST(request: Request): Promise<Response> {
     conversation = parsed.data.conversationId
       ? await conversationStore.get(parsed.data.conversationId, userId)
       : await conversationStore.create(userId);
-    conversation = await conversationStore.appendTurns(
-      conversation.id,
-      userId,
-      [{ role: "user", content: parsed.data.message }],
-    );
   } catch (error) {
     const response = conversationErrorResponse(error);
     if (response) return response;
@@ -185,6 +178,49 @@ export async function POST(request: Request): Promise<Response> {
     ...responseHeaders,
     "X-Conversation-Id": conversation.id,
   };
+
+  // 상담원과 연결된 대화는 모델을 거치지 않는다. 상담원이 한 번 답한 뒤에도
+  // 마찬가지다. 손님을 사람과의 대화 도중에 말없이 봇으로 되돌리지 않는다.
+  const operatorThreadTs = conversation.escalation?.slackThreadTs;
+  if (
+    isOperatorMode(conversation.escalation) &&
+    typeof operatorThreadTs === "string" &&
+    operatorThreadTs !== ""
+  ) {
+    const delivered = await relayGuestMessage({
+      threadTs: operatorThreadTs,
+      message: parsed.data.message,
+      limit: CHAT_MESSAGE_LIMIT,
+      postMessage: postSlackMessage,
+    });
+    // Slack이 받지 못한 문장은 저장하지도 않는다. 위젯이 입력을 되돌려 다시 친다.
+    if (!delivered) {
+      return new Response("상담원에게 전달하지 못했습니다.", {
+        status: 502,
+        headers,
+      });
+    }
+
+    await conversationStore.appendTurns(conversation.id, userId, [
+      { role: "user", content: parsed.data.message },
+    ]);
+
+    return new Response(null, {
+      headers: { ...headers, "X-Chat-Route": "operator" },
+    });
+  }
+
+  try {
+    conversation = await conversationStore.appendTurns(
+      conversation.id,
+      userId,
+      [{ role: "user", content: parsed.data.message }],
+    );
+  } catch (error) {
+    const response = conversationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -209,7 +245,7 @@ export async function POST(request: Request): Promise<Response> {
       userId,
       conversationStore,
       postMessage: (text) => postSlackMessage({ text }),
-      canEscalateNow: () => escalationRateLimiter.check(userId).allowed,
+      canEscalateNow: () => checkEscalationRateLimit(userId).allowed,
       now: () => Date.now(),
     }));
   }

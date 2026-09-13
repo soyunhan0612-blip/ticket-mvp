@@ -110,6 +110,7 @@ describe("GET /api/chat/[conversationId]", () => {
         updatedAt: updated.updatedAt,
       },
       awaitingOperator: false,
+      operatorMode: false,
     });
     expect(body).not.toHaveProperty("userId");
     expect(body).not.toHaveProperty("escalation");
@@ -142,6 +143,7 @@ describe("GET /api/chat/[conversationId]", () => {
     expect(body).toEqual({
       conversation: { id: "conversation", turns: [], updatedAt: 42 },
       awaitingOperator: false,
+      operatorMode: false,
     });
     expect(JSON.stringify(body)).not.toContain("slackChannelId");
   });
@@ -182,6 +184,8 @@ describe("GET /api/chat/[conversationId]", () => {
 
     expect(firstBody.awaitingOperator).toBe(true);
     expect(secondBody.awaitingOperator).toBe(true);
+    expect(firstBody.operatorMode).toBe(true);
+    expect(secondBody.operatorMode).toBe(true);
     expect(notices).toHaveLength(1);
     expect(JSON.stringify(firstBody)).not.toContain("escalation");
     expect(JSON.stringify(firstBody)).not.toContain("1234567890.123456");

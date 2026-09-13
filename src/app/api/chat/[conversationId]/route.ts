@@ -1,13 +1,14 @@
 import {
+  toConversationSnapshotResponse,
+  toEscalationSnapshot,
+} from "@/chatbot/adapters/ticket/conversation-view";
+import {
   AUTO_REPLY_TEXT,
-  isAwaitingOperator,
   shouldSendAutoReply,
 } from "@/chatbot/core/escalation";
-import type { EscalationSnapshot } from "@/chatbot/core/escalation";
 import { getUserIdFromRequest } from "@/lib/cookie";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { getConversationStore } from "@/services";
-import type { Conversation } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -21,29 +22,6 @@ function getClientIp(request: Request): string {
   if (forwardedFor) return forwardedFor.split(",")[0].trim();
 
   return request.headers.get("x-real-ip")?.trim() || "unknown";
-}
-
-function sanitizeConversation(conversation: Conversation) {
-  // 화이트리스트로 재구성한다. phase 16이 Conversation에 필드를 더해도
-  // 여기에 적지 않는 한 응답에 실리지 않는다.
-  return {
-    id: conversation.id,
-    turns: conversation.turns,
-    updatedAt: conversation.updatedAt,
-  };
-}
-
-function toEscalationSnapshot(
-  conversation: Conversation,
-): EscalationSnapshot | null {
-  const escalation = conversation.escalation;
-  if (escalation === null) return null;
-
-  return {
-    askedAt: escalation.askedAt,
-    autoReplySentAt: escalation.autoReplySentAt,
-    answeredAt: escalation.answeredAt,
-  };
 }
 
 export async function GET(
@@ -77,10 +55,9 @@ export async function GET(
       conversationId,
       userId,
     );
-    let escalation = toEscalationSnapshot(conversation);
     const now = Date.now();
 
-    if (shouldSendAutoReply(escalation, now)) {
+    if (shouldSendAutoReply(toEscalationSnapshot(conversation), now)) {
       const claimed = await conversationStore.markAutoReplySent(
         conversationId,
         userId,
@@ -97,13 +74,9 @@ export async function GET(
       } else {
         conversation = await conversationStore.get(conversationId, userId);
       }
-      escalation = toEscalationSnapshot(conversation);
     }
 
-    return Response.json({
-      conversation: sanitizeConversation(conversation),
-      awaitingOperator: isAwaitingOperator(escalation),
-    });
+    return Response.json(toConversationSnapshotResponse(conversation));
   } catch (error) {
     if (error instanceof Error) {
       if (error.message.startsWith("NOT_FOUND:")) {
