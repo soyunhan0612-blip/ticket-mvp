@@ -124,7 +124,7 @@ ADR-004는 코드 경로를 세어 스냅샷 폴링 1회를 2커맨드로 계산
 
 ### 사전 조건과 트래픽 격리
 
-1. `.env.local`에 `.env.example` 5·8줄과 글자 단위로 같은 `UPSTASH_REDIS_REST_URL`·`UPSTASH_REDIS_REST_TOKEN`을 설정한다. 둘 다 있어야 `src/services/index.ts` 19줄의 `hasRedisConfig()` 결과로 Redis 구현이 선택된다. 하나라도 없으면 인메모리 Store가 선택되어 Upstash 커맨드가 조용히 0으로 나온다. 환경변수를 바꿨다면 개발 서버를 다시 시작한다.
+1. `.env.local`에 `.env.example`과 글자 단위로 같은 `UPSTASH_REDIS_REST_URL`·`UPSTASH_REDIS_REST_TOKEN`을 설정한다. 둘 다 있어야 `src/services/index.ts`의 `hasRedisConfig()` 결과로 Redis 구현이 선택된다. 하나라도 없으면 인메모리 Store가 선택되어 Upstash 커맨드가 조용히 0으로 나온다. 환경변수를 바꿨다면 개발 서버를 다시 시작한다.
 2. 좌석 페이지는 한 탭만 열고 Admin, 다른 좌석 탭, 다른 브라우저를 모두 닫는다. 로컬 `pnpm dev`에서 측정하는 편이 트래픽을 통제하기 쉽다. 단, 로컬과 배포본이 같은 Upstash DB를 사용하면 배포본 방문자의 폴링도 같은 카운터에 섞이므로 사용자가 없는 DB나 시간대를 선택한다.
 3. 측정 중 좌석 탭을 전면에 둔다. 백그라운드 탭에서는 폴링이 중단될 수 있다.
 
