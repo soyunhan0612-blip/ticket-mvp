@@ -1,6 +1,6 @@
 ---
 name: docs-drift-detector
-description: 코드와 docs/ARCHITECTURE.md·ADR.md·README 진행표 사이의 불일치를 찾는다. 기능 구현 후 문서 갱신 전, phase 완료 후에 사용.
+description: 코드와 docs/ARCHITECTURE.md·ADR.md·README·PROGRESS 진행표 사이의 불일치를 찾는다. 기능 구현 후 문서 갱신 전, phase 완료 후에 사용.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -89,21 +89,21 @@ grep -rn "HydrationBoundary\|prefetchQuery\|dehydrate" src/app/
 
 라우트가 문서에 없거나, 문서에 있는 라우트가 코드에 없거나, 메서드 구성이 다르면 드리프트다.
 
-### 2. `README.md` 진행 상황 표 ↔ `phases/index.json`
+### 2. `docs/PROGRESS.md` 단계 요약 표 ↔ `phases/index.json`
 
-진행 상태의 **단일 출처는 `phases/*/index.json`**이다. README 표가 그것과 어긋나면 README가 틀린 것이다.
+진행 상태의 **단일 출처는 `phases/*/index.json`**이다. PROGRESS 표가 그것과 어긋나면 PROGRESS가 틀린 것이다.
 
 두 파일의 스키마가 다르다. 헷갈리지 마라.
 
-- `phases/index.json` — **phase 단위** status. README 표와 대조할 것은 이쪽이다
+- `phases/index.json` — **phase 단위** status. 단계 요약 표와 대조할 것은 이쪽이다
 - `phases/{phase}/index.json` — **step 단위** status 배열. 특정 phase의 진행 상세를 볼 때
 
 ```bash
 cat phases/index.json
 ```
 
-`blocked`인 phase가 README에서 완료로 보이면 반드시 보고한다 — 심사자가 읽는 문서다.
-반대로 **착수 전(`pending`) phase가 README 표에 아예 없는 것은 허위가 아니다.**
+표에는 상태 열이 없으니 서술로 판단한다. `blocked`인 phase가 완료·해소된 것처럼 읽히면 반드시 보고한다.
+반대로 **착수 전(`pending`) phase가 표에 아예 없는 것은 허위가 아니다.**
 
 ### 3. `docs/ADR.md` ↔ 실제 구현
 
@@ -126,6 +126,7 @@ ADR-004a 보상 롤백, ADR-007 AI 운영 확장의 경계.
 ### 5. `docs/PROGRESS.md`·`docs/PERF_MEASUREMENT.md`
 
 PROGRESS.md는 **서사 저널**이라 과거 시점 기술이 정상이다. 과거형 서술을 드리프트로 보지 마라.
+단, 맨 위 `## 단계 요약` 표는 예외로 2번에서 대조한다.
 현재형으로 쓰인 구조 설명만 대조한다.
 
 PERF_MEASUREMENT.md는 측정 **절차서**다. 절차가 가리키는 파일·컴포넌트가 실제로

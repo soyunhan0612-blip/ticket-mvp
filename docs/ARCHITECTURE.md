@@ -248,7 +248,7 @@ Field: seatId → { status: 'held'|'sold', userId, expiresAt }
 **슬랙으로 나가는 텍스트는 감싸지 않는다.** 모델 이력은 저장된 대화에서 매번 다시 조립되고(`createHistory`가 operator·notice 턴을 버리고 user 턴은 그 자리에서 `wrapUserInput`을 다시 건다) 슬랙 문자열은 어디서도 되읽히지 않는다 — 즉 구분자가 방어에 기여하는 몫이 0이고 사람이 읽는 채널에는 노이즈로만 남는다. 대신 `neutralizeInput`으로 길이와 공백만 정리하고, 손님이 친 문장은 Block Kit `plain_text` 블록에 싣는다(`mrkdwn`에 넣으면 손님이 친 `*`·백틱이 서식으로 먹혀 문장이 깨진다).
 
 ### /admin·/seller
-middleware 인증. 환경변수 계정 1개, README에 심사자용 계정 명시.
+middleware 인증. 환경변수 계정 1개, 심사자용 계정 안내는 `docs/REVIEWER_TOUR.md`.
 
 자격증명은 `POST /api/auth/login`이 대조하고 HTTP-only 쿠키(`SameSite=Lax`, 12시간)로 발급한다. 미들웨어는 그 쿠키를 `lib/basic-auth.ts`의 `verifyBasicAuthCookie`로 검증하며, **`WWW-Authenticate` 헤더는 보내지 않는다** — 그 헤더가 브라우저 네이티브 로그인 프롬프트를 띄우는 유일한 원인이라 자체 모달로 바꾸려면 없애야 했다. `Authorization: Basic` 헤더 검증은 남아 있어 심사자용 `curl -u`가 그대로 동작하고, 헤더를 광고하지 않으므로 프롬프트는 뜨지 않는다.
 

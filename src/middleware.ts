@@ -13,7 +13,7 @@ const USER_ID_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 /*
  * 쿠키가 먼저, Authorization 헤더가 그다음이다.
- * 헤더 경로를 남겨두는 이유는 README의 심사자용 `curl -u`가 그대로 살아 있어야 하기
+ * 헤더 경로를 남겨두는 이유는 docs/REVIEWER_TOUR.md의 심사자용 `curl -u`가 그대로 살아 있어야 하기
  * 때문이다. WWW-Authenticate를 응답에 싣지 않으므로 브라우저는 헤더를 지원한다는
  * 사실을 모르고, 따라서 네이티브 로그인 프롬프트도 뜨지 않는다.
  */

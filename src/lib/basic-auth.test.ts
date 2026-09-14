@@ -142,7 +142,7 @@ describe("verifyBasicAuthCookie", () => {
   });
 
   /*
-   * 헤더 경로의 fail-closed 규칙(README "빈 문자열 자격증명으로 Basic Auth가 뚫리던 결함")이
+   * 헤더 경로의 fail-closed 규칙(docs/AI_COLLABORATION.md "빈 문자열 자격증명으로 Basic Auth가 뚫리던 결함")이
    * 쿠키 경로에서도 유지되는지 못박는다. 저장 위치가 바뀌었을 뿐 정책은 같아야 한다.
    */
   it.each([

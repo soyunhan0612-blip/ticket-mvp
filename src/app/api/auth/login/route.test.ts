@@ -75,7 +75,7 @@ describe("POST /api/auth/login", () => {
   });
 
   /*
-   * README에 결함 서사로 남아 있는 fail-closed 규칙. 자격증명이 설정되지 않았을 때
+   * docs/AI_COLLABORATION.md에 결함 서사로 남아 있는 fail-closed 규칙. 자격증명이 설정되지 않았을 때
    * 로그인 폼이 열리는 방향으로 실패하면 미들웨어를 고쳐둔 의미가 사라진다.
    */
   it.each([

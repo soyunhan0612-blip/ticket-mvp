@@ -17,7 +17,7 @@ Day별 진행 결과와 결정 근거. 서사 문서.
 | 7 예매 | 예매 확정·내역·취소, 사용자별 조회와 소유권 검증, 실패 시 보상 롤백 |
 | 8 셀러·AI | 3종 좌석 프리셋(500·1,000·2,000석) 공연 등록, Haiku 4.5 설명 스트리밍과 키 없는 fallback, IP 단위 요청 제한, Basic Auth |
 | 9 Admin·Redis | 재사용 좌석맵 기반 Admin, SVG `viewBox` 줌/팬, Redis Store·Lua·팩토리 교체; 로컬·프로덕션 양쪽에서 Redis 연결 확인 |
-| 10 릴리스 | Basic Auth fail-closed 수정, README 정리. 당시 실측값이 없어 지표 문서화 단계는 [`blocked`](../phases/10-release/index.json)로 멈췄고, 2026-09-13 실측으로 채웠다 |
+| 10 릴리스 | Basic Auth fail-closed 수정, README 정리. 당시 실측값이 없어 지표 문서화 단계는 [`blocked`](../phases/10-release/index.json)로 멈췄다. 리렌더 수(11단계)와 초기 마운트 시간(2026-09-13)은 이후 실측으로 채웠지만 [폴링 1회당 Upstash 커맨드 수](PERF_MEASUREMENT.md#6-폴링-1회당-upstash-커맨드-수-미측정)가 남아 아직 `blocked`다 |
 | 11 성능 계측 | 렌더 카운터와 before/after 계측 테스트로 리렌더 수를 실측, 측정 절차를 [Perf Measurement](PERF_MEASUREMENT.md)에 문서화 |
 | 12 AI 운영 조회 | 좌석 집계를 `src/lib/`의 순수 함수로 추출해 두 라우트가 공유, 회차 목록을 돌려주는 `GET /api/admin/operations`, 스트리밍 `POST /api/admin/ai-summary`(키 없으면 폴백), `/admin`의 운영 표와 요청형 AI 요약 |
 | 13 운영 Agent | 조회 전용 Tool 2개(`list_shows`·`list_operations`)를 읽기 메서드만 노출하는 타입으로 강제, `toolRunner`(Opus 5)로 조립한 `POST /api/admin/agent`, `/admin`의 질문형 패널. 쓰기 API 미참조를 테스트로 고정 |

@@ -1,7 +1,7 @@
 이 프로젝트의 변경 사항을 리뷰하라. 서브에이전트 두 개를 **병렬로** 띄운다.
 
 1. `critical-rules-auditor` — `CLAUDE.md` CRITICAL 규칙과 `AGENTS.md` 차단 이슈 검사
-2. `docs-drift-detector` — 코드와 `ARCHITECTURE.md`·`ADR.md`·`README.md` 진행표 대조
+2. `docs-drift-detector` — 코드와 `ARCHITECTURE.md`·`ADR.md`·`README.md`·`PROGRESS.md` 진행표 대조
 
 각 에이전트에 리뷰 범위를 알려라(작업 트리 변경인지, 특정 phase인지, 브랜치 전체인지).
 범위가 지정되지 않았으면 작업 트리의 변경을 대상으로 한다.

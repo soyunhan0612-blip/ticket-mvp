@@ -84,7 +84,7 @@ export function LoginDialog(): JSX.Element {
       title="로그인이 필요합니다"
     >
       <p className="text-body-sm text-body-aa">
-        셀러·운영 화면입니다. 심사자용 계정은 README에 있습니다.
+        셀러·운영 화면입니다. 심사자용 계정 값이 입력란에 힌트로 보입니다.
       </p>
 
       <form className="space-y-lg" onSubmit={handleSubmit}>

@@ -74,7 +74,7 @@ phase 레벨(`phases/index.json`)의 status도 함께 되돌려야 한다.
 
 ## 진행 상태의 단일 출처
 
-`phases/*/index.json`이다. `README.md`의 진행 표나 `docs/PROGRESS.md`가 이것과
+`phases/*/index.json`이다. `docs/PROGRESS.md`의 단계 요약 표가 이것과
 어긋나면 그쪽이 틀린 것이다.
 
 `docs/*.md`에 실행 로그나 체크리스트를 쌓지 마라 — `execute.py`가 매 step 프롬프트에
